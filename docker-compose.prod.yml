@@ -1,0 +1,10 @@
+
+services:
+  api:
+    image: fry-marshall/fbudget_api
+    container_name: fbudget_api
+    ports:
+      - ${PORT}:${PORT}
+    env_file: .env.prod
+    command: node dist/main
+    restart: unless-stopped

@@ -1,0 +1,16 @@
+
+services:
+  api:
+    build:
+      context: .
+      target: dev
+    container_name: fbudget_api
+    env_file: .env.dev
+    environment:
+      NODE_ENV: dev
+    volumes:
+    - .:/app
+    - ./.env.dev:/app/.env
+    - /app/node_modules
+    ports:
+      - "3000:3000"
