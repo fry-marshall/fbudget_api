@@ -37,7 +37,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/adapters/handlebars.ad
             },
           },
           defaults: {
-            from: '"FBudget" <marshalfry1998@gmail.com>',
+            from: `"FBudget" <${config.get('MAIL_USERNAME')}>`,
           },
           template: {
             adapter: new HandlebarsAdapter(),

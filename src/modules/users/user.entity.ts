@@ -11,7 +11,7 @@ export class User {
     @Column()
     email?: string
 
-    @Column({ name: 'auth_provider', enum: AuthProvider })
+    @Column({ type: 'enum', name: 'auth_provider', enum: AuthProvider })
     authProvider?: AuthProvider
 
     @Column({ nullable: true, name: 'display_name' })
