@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
-import { ConsoleLogger } from '@nestjs/common';
+import { ConsoleLogger, ValidationPipe } from '@nestjs/common';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
 async function bootstrap() {
@@ -13,6 +13,9 @@ async function bootstrap() {
   });
   app.useGlobalFilters(new GlobalExceptionFilter())
   app.useGlobalInterceptors(new ResponseInterceptor())
+  app.useGlobalPipes(new ValidationPipe({
+    forbidNonWhitelisted: true,
+  }))
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();
