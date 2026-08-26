@@ -3,6 +3,7 @@ import { AuthGoogleDto } from "./dto/auth-google.dto";
 import { AuthService } from "./auth.service";
 import { AuthResponseDto } from "./dto/auth-response.dto";
 import { AuthEmailDto } from "./dto/auth-email.dto";
+import { RequestOtpDto } from "./dto/request-otp.dto";
 
 @Controller('auth')
 export class AuthController {
@@ -19,6 +20,11 @@ export class AuthController {
     @Post('email')
     emailAuthentication(@Body() authEmailDto: AuthEmailDto): Promise<{ message: string }> {
         return this.authService.emailAuthentication(authEmailDto.email!);
+    }
+
+    @Post('request-otp')
+    requestOtp(@Body() requestOtpDto: RequestOtpDto): Promise<{ message: string }> {
+        return this.authService.requestOtp(requestOtpDto.email!);
     }
 
 }

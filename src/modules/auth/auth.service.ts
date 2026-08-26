@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { AuthResponseDto } from "./dto/auth-response.dto";
 import { GoogleService } from "src/common/services/google.service";
 import { GoogleToken } from "src/common/interfaces/google-token.interface";
@@ -65,7 +65,42 @@ export class AuthService {
             const otp = generateOtp();
 
             await this.userRepository.update(user?.id!, {
-                otp
+                otp,
+                otpExpiresAt: new Date()
+            });
+
+            await this.mailService.sendMail({
+                receiver: user.email,
+                subject: 'Connexion à FBudget : Voici le code de vérification à 6 chiffres',
+                context: {
+                    code: otp,
+                    name: user.displayName
+                },
+                template: 'otp-verification',
+            })
+
+            return {
+                message: "OTP send successfully"
+            };
+
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    async requestOtp(email: string): Promise<{ message: string }> {
+        try {
+            let user = await this.userRepository.findOne({ where: { email } });
+
+            if (!user) {
+                throw new NotFoundException('User not found')
+            }
+
+            const otp = generateOtp();
+
+            await this.userRepository.update(user?.id!, {
+                otp,
+                otpExpiresAt: new Date()
             });
 
             await this.mailService.sendMail({

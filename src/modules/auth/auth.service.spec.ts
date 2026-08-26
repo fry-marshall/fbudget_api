@@ -5,7 +5,7 @@ import { GoogleService } from "src/common/services/google.service"
 import { ConfigService } from "@nestjs/config"
 import { getRepositoryToken } from "@nestjs/typeorm"
 import { User } from "../users/user.entity"
-import { BadRequestException } from "@nestjs/common"
+import { BadRequestException, NotFoundException } from "@nestjs/common"
 import { MailService } from "src/common/services/mail.service"
 
 
@@ -22,6 +22,10 @@ let jwtServiceMocked = {
     sign: jest.fn()
         .mockReturnValueOnce('access-token')
         .mockReturnValueOnce('refresh-token')
+}
+
+let mailServiceMocked = {
+    sendMail: jest.fn()
 }
 
 
@@ -48,9 +52,7 @@ describe('AuthService', () => {
                 },
                 {
                     provide: MailService,
-                    useValue: {
-                        sendMail: jest.fn().mockResolvedValue('')
-                    }
+                    useValue: mailServiceMocked
                 },
                 {
                     provide: getRepositoryToken(User),
@@ -168,6 +170,45 @@ describe('AuthService', () => {
                 userRepositoryMocked.findOne = jest.fn().mockRejectedValue(new BadRequestException('An error occured'))
 
                 await expect(authService.emailAuthentication('toto@gmail.com')).rejects.toThrow(new BadRequestException('An error occured'))
+            })
+        })
+    })
+
+    describe('requestOtp', () => {
+        describe('success cases', () => {
+            it('should return otp by email when user exists', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue({
+                    id: 'toto',
+                    email: 'test@gmail.com'
+                })
+
+                const response = await authService.emailAuthentication('toto@gmail.com')
+                expect(response.message).toBe('OTP send successfully')
+            });
+        })
+
+        describe('failure cases', () => {
+            it('should throw exception when user doesn\'t exist', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue(null)
+
+                await expect(authService.requestOtp('toto@gmail.com')).rejects.toThrow(new NotFoundException('User not found'))
+            })
+
+            it('should throw exception when email service fails', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue({
+                    id: 'toto',
+                    email: 'test@gmail.com'
+                })
+
+                mailServiceMocked.sendMail = jest.fn().mockRejectedValue(new Error('Email cannot be sent'))
+
+                await expect(authService.requestOtp('toto@gmail.com')).rejects.toThrow(new Error('Email cannot be sent'))
+            })
+
+            it('should throw exception repository method fails', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockRejectedValue(new BadRequestException('An error occured'))
+
+                await expect(authService.requestOtp('toto@gmail.com')).rejects.toThrow(new BadRequestException('An error occured'))
             })
         })
     })
