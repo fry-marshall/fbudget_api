@@ -10,6 +10,7 @@ import { ConfigService } from "@nestjs/config";
 import { generateOtp } from "src/common/helpers/helpers";
 import { MailService } from "src/common/services/mail.service";
 import { AuthProvider } from "../users/types";
+import { RefreshTokenService } from "../refresh-tokens/refresh-token.service";
 
 @Injectable()
 export class AuthService {
@@ -19,6 +20,7 @@ export class AuthService {
         private jwtService: JwtService,
         private configService: ConfigService,
         private mailService: MailService,
+        private refreshTokenService: RefreshTokenService,
         @InjectRepository(User)
         private userRepository: Repository<User>
     ) { }
@@ -133,5 +135,33 @@ export class AuthService {
 
         return tokens;
 
+    }
+
+    async refreshToken(refreshTokenParam: string): Promise<AuthResponseDto> {
+        const payload: { id: string, email: string } = await this.jwtService.verifyAsync(refreshTokenParam, { secret: this.configService.get('REFRESH_TOKEN_SECRET') })
+        if (payload) {
+            const user = await this.userRepository.findOne({ where: { id: payload.id } })
+
+            if (!user) {
+                throw new NotFoundException('User not found')
+            }
+
+            const refreshToken = await this.refreshTokenService.findUserRefreshToken(payload.id, refreshTokenParam)
+            if (!refreshToken) {
+                throw new UnauthorizedException('Refresh token not found')
+            }
+            else {
+                const tokens = {
+                    accessToken: this.jwtService.sign(payload, { secret: this.configService.get('ACCESS_TOKEN_SECRET'), expiresIn: this.configService.get('ACCESS_TOKEN_EXPIRY') }),
+                    refreshToken: this.jwtService.sign(payload, { secret: this.configService.get('REFRESH_TOKEN_SECRET'), expiresIn: this.configService.get('REFRESH_TOKEN_EXPIRY') }),
+                }
+                await this.refreshTokenService.saveRefreshToken(payload.id, tokens.refreshToken);
+                await this.refreshTokenService.removeRefreshToken(refreshTokenParam)
+
+                return tokens;
+            }
+        }
+
+        throw new UnauthorizedException('Refresh token is not valid')
     }
 }

@@ -7,13 +7,19 @@ import { getRepositoryToken } from "@nestjs/typeorm"
 import { User } from "../users/user.entity"
 import { BadRequestException, NotFoundException, UnauthorizedException } from "@nestjs/common"
 import { MailService } from "src/common/services/mail.service"
+import { RefreshTokenService } from "../refresh-tokens/refresh-token.service"
 
 
 const googleServiceMocked = {
     verifyIdToken: jest.fn()
 }
 const userRepositoryMocked = {
-    findOne: jest.fn(),
+    findOne: jest.fn().mockResolvedValue({
+        id: 'toto',
+        email: 'test@gmail.com',
+        code: '123456',
+        otpExpiredAt: new Date(Date.now() + 900000)
+    }),
     update: jest.fn(),
     save: jest.fn(),
 }
@@ -21,13 +27,22 @@ const userRepositoryMocked = {
 let jwtServiceMocked = {
     sign: jest.fn()
         .mockReturnValueOnce('access-token')
-        .mockReturnValueOnce('refresh-token')
+        .mockReturnValueOnce('refresh-token'),
+    verifyAsync: jest.fn().mockResolvedValue({
+        id: 'toto',
+        email: 'test@gmail.com'
+    })
 }
 
 let mailServiceMocked = {
     sendMail: jest.fn()
 }
 
+let refreshTokenServiceMocked = {
+    findUserRefreshToken: jest.fn().mockResolvedValue({ id: 'refresh-token', token: 'refresh-token', user: { id: 'toto' } }),
+    removeRefreshToken: jest.fn().mockResolvedValue({}),
+    saveRefreshToken: jest.fn().mockResolvedValue({}),
+}
 
 describe('AuthService', () => {
     let authService: AuthService
@@ -57,6 +72,11 @@ describe('AuthService', () => {
                 {
                     provide: getRepositoryToken(User),
                     useValue: userRepositoryMocked
+                },
+                {
+                    provide: RefreshTokenService,
+                    useValue: refreshTokenServiceMocked
+
                 },
             ]
         }).compile()
@@ -251,6 +271,69 @@ describe('AuthService', () => {
                 userRepositoryMocked.findOne = jest.fn().mockRejectedValue(new BadRequestException('An error occured'))
 
                 await expect(authService.verifyOtp('toto@gmail.com', '123456')).rejects.toThrow(new BadRequestException('An error occured'))
+            })
+        })
+    })
+
+    describe('refresh token', () => {
+        describe('success cases', () => {
+            it('should return credentials when user exists, refresh token is valid & existed in database', async () => {
+
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue({
+                    id: 'toto',
+                    email: 'test@gmail.com',
+                    code: '123456',
+                    otpExpiredAt: new Date(Date.now() + 900000)
+                });
+
+                const response = await authService.refreshToken('123456')
+                expect(response.accessToken).toBe('access-token')
+                expect(response.refreshToken).toBe('refresh-token')
+                expect(jwtServiceMocked.verifyAsync).toHaveBeenCalled()
+                expect(refreshTokenServiceMocked.findUserRefreshToken).toHaveBeenCalledWith('toto', '123456')
+                expect(refreshTokenServiceMocked.saveRefreshToken).toHaveBeenCalledWith('toto', 'refresh-token')
+                expect(refreshTokenServiceMocked.removeRefreshToken).toHaveBeenCalledWith('123456')
+
+            });
+        })
+
+        describe('failure cases', () => {
+            it('should throw not found exception when user doesn\'t exist', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue(null)
+
+                await expect(authService.refreshToken('123456')).rejects.toThrow(new NotFoundException('User not found'))
+            })
+
+            it('should throw unauthorized exception when refresh token is invalid or expired', async () => {
+                jwtServiceMocked.verifyAsync = jest.fn().mockResolvedValue(null)
+
+                await expect(authService.refreshToken('123456')).rejects.toThrow(new UnauthorizedException('Refresh token is not valid'))
+            })
+
+            it('should throw unauthorized exception when refresh token doesn\'t exist', async () => {
+                jwtServiceMocked.verifyAsync = jest.fn().mockResolvedValue({
+                    id: 'toto',
+                    email: 'test@gmail.com'
+                })
+                refreshTokenServiceMocked.findUserRefreshToken = jest.fn().mockResolvedValue(null)
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue({
+                    id: 'toto',
+                    email: 'test@gmail.com',
+                    otpCode: '123456',
+                    otpExpiresAt: new Date(Date.now() - 10000)
+                })
+
+                await expect(authService.refreshToken('123456')).rejects.toThrow(new UnauthorizedException('Refresh token not found'))
+            })
+
+            it('should throw exception repository method fails', async () => {
+                jwtServiceMocked.verifyAsync = jest.fn().mockResolvedValue({
+                    id: 'toto',
+                    email: 'test@gmail.com'
+                })
+                userRepositoryMocked.findOne = jest.fn().mockRejectedValue(new BadRequestException('An error occured'))
+
+                await expect(authService.refreshToken('123456')).rejects.toThrow(new BadRequestException('An error occured'))
             })
         })
     })

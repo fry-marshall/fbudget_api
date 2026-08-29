@@ -5,6 +5,7 @@ import { AuthResponseDto } from "./dto/auth-response.dto";
 import { AuthEmailDto } from "./dto/auth-email.dto";
 import { RequestOtpDto } from "./dto/request-otp.dto";
 import { VerifyOtpDto } from "./dto/verify-otp.dto";
+import { RefreshTokenDto } from "./dto/refresh-token.dto";
 
 @Controller('auth')
 export class AuthController {
@@ -31,6 +32,11 @@ export class AuthController {
     @Post('verify-otp')
     verifyOtp(@Body() verifyOtpDto: VerifyOtpDto): Promise<AuthResponseDto> {
         return this.authService.verifyOtp(verifyOtpDto.email!, verifyOtpDto.code!);
+    }
+
+    @Post('refresh')
+    refreshToken(@Body() refreshTokenDto: RefreshTokenDto): Promise<AuthResponseDto> {
+        return this.authService.refreshToken(refreshTokenDto.refreshToken!);
     }
 
 }
