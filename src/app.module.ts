@@ -7,9 +7,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { databaseConfig } from './config/database.config';
 import { TestController } from './modules/test/test.controller';
 import { AuthModule } from './modules/auth/auth.module';
-import { PassportModule } from '@nestjs/passport';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/adapters/handlebars.adapter';
+import { JwtStrategy } from './common/strategies/jwt.strategy';
+import { UserModule } from './modules/users/user.module';
 
 @Module({
   imports: [
@@ -46,8 +47,9 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/adapters/handlebars.ad
       }
 
     }),
+    UserModule
   ],
   controllers: [AppController, TestController],
-  providers: [AppService],
+  providers: [AppService, JwtStrategy],
 })
 export class AppModule { }
