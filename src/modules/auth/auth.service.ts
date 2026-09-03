@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { AuthResponseDto } from "./dto/auth-response.dto";
 import { GoogleService } from "src/common/services/google.service";
 import { GoogleToken } from "src/common/interfaces/google-token.interface";
@@ -11,6 +11,7 @@ import { generateOtp } from "src/common/helpers/helpers";
 import { MailService } from "src/common/services/mail.service";
 import { AuthProvider } from "../users/types";
 import { RefreshTokenService } from "../refresh-tokens/refresh-token.service";
+import { ERRORS_MESSAGES } from "src/common/constants";
 
 @Injectable()
 export class AuthService {
@@ -35,7 +36,13 @@ export class AuthService {
             user = await this.userRepository.save({
                 email,
                 displayName: name,
-                authProvider: AuthProvider.GOOGLE
+                authProviders: [AuthProvider.GOOGLE]
+            });
+        }
+        else if (user && !user.authProviders?.includes(AuthProvider.GOOGLE)) {
+            const authProviders: AuthProvider[] = [...user.authProviders!, AuthProvider.GOOGLE]
+            await this.userRepository.update(user.id!, {
+                authProviders
             });
         }
 
@@ -49,6 +56,8 @@ export class AuthService {
             refreshToken: this.jwtService.sign(payload, { secret: this.configService.get('REFRESH_TOKEN_SECRET'), expiresIn: this.configService.get('REFRESH_TOKEN_EXPIRY') }),
         }
 
+        await this.refreshTokenService.saveRefreshToken(user.id!, tokens.refreshToken)
+
         return tokens;
     }
 
@@ -56,7 +65,13 @@ export class AuthService {
         let user = await this.userRepository.findOne({ where: { email } });
 
         if (!user) {
-            user = await this.userRepository.save({ email, authProvider: AuthProvider.EMAIL });
+            user = await this.userRepository.save({ email, authProviders: [AuthProvider.EMAIL] });
+        }
+        else if (user && !user.authProviders?.includes(AuthProvider.EMAIL)) {
+            const authProviders: AuthProvider[] = [...user.authProviders!, AuthProvider.EMAIL]
+            await this.userRepository.update(user.id!, {
+                authProviders
+            });
         }
 
         const otpCode = generateOtp();
@@ -86,7 +101,10 @@ export class AuthService {
         let user = await this.userRepository.findOne({ where: { email } });
 
         if (!user) {
-            throw new NotFoundException('User not found')
+            // To not let any attacker have the information this account exists or not
+            return {
+                message: "OTP send successfully"
+            };
         }
 
         const otpCode = generateOtp();
@@ -117,11 +135,16 @@ export class AuthService {
         let user = await this.userRepository.findOne({ where: { email, otpCode: code } });
 
         if (!user) {
-            throw new NotFoundException('User not found')
+            throw new NotFoundException(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND)
         }
         if (now > user.otpExpiresAt?.getTime()!) {
-            throw new UnauthorizedException('Otp code is incorrect')
+            throw new UnauthorizedException(ERRORS_MESSAGES.AUTH.EXPIRED_OTP)
         }
+
+        await this.userRepository.update(user.id!, {
+            otpCode: null,
+            otpExpiresAt: null,
+        })
 
         const payload = {
             id: user.id,
@@ -133,22 +156,24 @@ export class AuthService {
             refreshToken: this.jwtService.sign(payload, { secret: this.configService.get('REFRESH_TOKEN_SECRET'), expiresIn: this.configService.get('REFRESH_TOKEN_EXPIRY') }),
         }
 
+        await this.refreshTokenService.saveRefreshToken(user.id!, tokens.refreshToken)
+
         return tokens;
 
     }
 
     async refreshToken(refreshTokenParam: string): Promise<AuthResponseDto> {
-        const payload: { id: string, email: string } = await this.jwtService.verifyAsync(refreshTokenParam, { secret: this.configService.get('REFRESH_TOKEN_SECRET') })
-        if (payload) {
+        try {
+            const payload: { id: string, email: string } = await this.jwtService.verifyAsync(refreshTokenParam, { secret: this.configService.get('REFRESH_TOKEN_SECRET') })
             const user = await this.userRepository.findOne({ where: { id: payload.id } })
 
             if (!user) {
-                throw new NotFoundException('User not found')
+                throw new NotFoundException(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND)
             }
 
             const refreshToken = await this.refreshTokenService.findUserRefreshToken(payload.id, refreshTokenParam)
             if (!refreshToken) {
-                throw new UnauthorizedException('Refresh token not found')
+                throw new UnauthorizedException(ERRORS_MESSAGES.AUTH.TOKEN_NOT_FOUND)
             }
             else {
                 const tokens = {
@@ -160,8 +185,36 @@ export class AuthService {
 
                 return tokens;
             }
+        } catch (err) {
+            if (err instanceof UnauthorizedException || err instanceof NotFoundException || err instanceof BadRequestException) {
+                throw err
+            }
+            throw new UnauthorizedException(ERRORS_MESSAGES.AUTH.INVALID_TOKEN)
         }
+    }
 
-        throw new UnauthorizedException('Refresh token is not valid')
+    async logout(refreshTokenParam: string): Promise<{ message: string }> {
+        try {
+            const payload: { id: string, email: string } = await this.jwtService.verifyAsync(refreshTokenParam, { secret: this.configService.get('REFRESH_TOKEN_SECRET') })
+            const user = await this.userRepository.findOne({ where: { id: payload.id } })
+
+            if (!user) {
+                throw new NotFoundException(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND)
+            }
+
+            const refreshToken = await this.refreshTokenService.findUserRefreshToken(payload.id, refreshTokenParam)
+            if (!refreshToken) {
+                throw new UnauthorizedException(ERRORS_MESSAGES.AUTH.TOKEN_NOT_FOUND)
+            }
+
+            await this.refreshTokenService.removeRefreshToken(refreshTokenParam)
+            return { message: 'User logout successfully' }
+        }
+        catch (err) {
+            if (err instanceof UnauthorizedException || err instanceof NotFoundException || err instanceof BadRequestException) {
+                throw err
+            }
+            throw new UnauthorizedException(ERRORS_MESSAGES.AUTH.INVALID_TOKEN)
+        }
     }
 }

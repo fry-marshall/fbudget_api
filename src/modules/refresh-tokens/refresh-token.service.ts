@@ -14,7 +14,7 @@ export class RefreshTokenService {
     async findUserRefreshToken(userId: string, token: string): Promise<RefreshToken | null> {
         return await this.refreshTokenRepository.findOne({
             where: {
-                id: token,
+                token,
                 user: {
                     id: userId
                 }
@@ -23,7 +23,7 @@ export class RefreshTokenService {
     }
 
     async removeRefreshToken(token: string): Promise<void> {
-        await this.refreshTokenRepository.delete({ id: token })
+        await this.refreshTokenRepository.delete({ token })
     }
 
     async saveRefreshToken(userId: string, token: string): Promise<void> {

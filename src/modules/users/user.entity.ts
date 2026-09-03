@@ -1,6 +1,7 @@
-import { Column, CreateDateColumn, DeleteDateColumn, Entity, Index, JoinColumn, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, DeleteDateColumn, Entity, Index, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { AuthProvider, SubscriptionPlan, UserRole } from "./types";
 import { Settings } from "../settings/settings.entity";
+import { RefreshToken } from "../refresh-tokens/refresh-token.entity";
 
 @Entity('users')
 @Index('UQ_users_email_active', ['email'], {unique: true, where: '"deleted_at" IS NULL'})
@@ -11,8 +12,8 @@ export class User {
     @Column()
     email?: string
 
-    @Column({ type: 'enum', name: 'auth_provider', enum: AuthProvider })
-    authProvider?: AuthProvider
+    @Column({ type: 'enum', name: 'auth_provider', enum: AuthProvider, array: true, default: [] })
+    authProviders?: AuthProvider[]
 
     @Column({ nullable: true, name: 'display_name' })
     displayName?: string
@@ -37,7 +38,10 @@ export class User {
 
     @OneToOne(() => Settings)
     @JoinColumn()
-    settings?: Settings
+    settings?: Settings;
+
+    @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
+    refreshTokens?: RefreshToken[]
 
     @CreateDateColumn({type: 'timestamptz', name: 'created_at'})
     createdAt?: Date;
