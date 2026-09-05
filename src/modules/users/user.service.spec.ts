@@ -12,8 +12,26 @@ describe('UserService', () => {
     let userRepositoryMocked = {
         findOne: jest.fn(),
         update: jest.fn(),
+        delete: jest.fn()
     };
     let userService: UserService;
+
+    let userMocked: User = {
+        id: 'user-id',
+        email: 'test@gmail.com',
+        authProviders: [AuthProvider.EMAIL],
+        displayName: 'displayName',
+        city: 'city',
+        country: 'country',
+        plan: SubscriptionPlan.FREE,
+        role: UserRole.USER,
+        settings: {
+            id: 'settings-id',
+            primaryCurrency: Currency.EUR,
+            monthlyBudget: 200,
+        },
+        createdAt: new Date(),
+    }
 
     beforeAll(async () => {
         const moduleRef = await Test.createTestingModule({
@@ -155,5 +173,31 @@ describe('UserService', () => {
             })
         });
 
+    })
+
+    describe('deleteMe', () => {
+        describe('Success cases', () => {
+            it('should delete the user successfully', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue(userMocked)
+                userRepositoryMocked.delete = jest.fn().mockResolvedValue(null)
+
+                const response = await userService.deleteMe(userMocked.id!)
+                expect(response.message).toBe(ERRORS_MESSAGES.USER.USER_DELETED)
+            })
+        })
+        describe('Failure cases', () => {
+            it('should throw NotFoundException when user doesn\'t exist', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockRejectedValue(new NotFoundException(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND))
+
+                await expect(userService.deleteMe(userMocked.id!)).rejects.toThrow(new NotFoundException(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND))
+            })
+
+            it('should throw Error when delete user fails', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue(userMocked)
+                userRepositoryMocked.delete = jest.fn().mockRejectedValue(new Error('An error has occured'))
+
+                await expect(userService.deleteMe(userMocked.id!)).rejects.toThrow(new Error('An error has occured'))
+            })
+        })
     })
 })

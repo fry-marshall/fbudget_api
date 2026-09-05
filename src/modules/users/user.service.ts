@@ -67,6 +67,23 @@ export class UserService {
         return this.toDto(user);
     }
 
+    async deleteMe(userId: string): Promise<{ message: string }> {
+
+        let user = await this.userRepository.findOne({
+            where: {
+                id: userId
+            },
+        })
+
+        if (!user) {
+            throw new NotFoundException(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND);
+        }
+
+        await this.userRepository.delete(user.id!)
+
+        return { message: ERRORS_MESSAGES.USER.USER_DELETED }
+    }
+
     private toDto(user: User): UserResponseDto {
         return {
             id: user.id,

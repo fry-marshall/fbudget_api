@@ -4,7 +4,7 @@ import { Settings } from "../settings/settings.entity";
 import { RefreshToken } from "../refresh-tokens/refresh-token.entity";
 
 @Entity('users')
-@Index('UQ_users_email_active', ['email'], {unique: true, where: '"deleted_at" IS NULL'})
+@Index('UQ_users_email_active', ['email'], { unique: true, where: '"deleted_at" IS NULL' })
 export class User {
     @PrimaryGeneratedColumn('uuid')
     id?: string;
@@ -36,19 +36,19 @@ export class User {
     @Column({ name: 'otp_expires_at', nullable: true, type: 'timestamptz' })
     otpExpiresAt?: Date;
 
-    @OneToOne(() => Settings)
+    @OneToOne(() => Settings, { cascade: true })
     @JoinColumn()
     settings?: Settings;
 
-    @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
+    @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user, { cascade: true })
     refreshTokens?: RefreshToken[]
 
-    @CreateDateColumn({type: 'timestamptz', name: 'created_at'})
+    @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
     createdAt?: Date;
 
-    @UpdateDateColumn({type: 'timestamptz', name: 'updated_at'})
+    @UpdateDateColumn({ type: 'timestamptz', name: 'updated_at' })
     updatedAt?: Date;
 
-    @DeleteDateColumn({type: 'timestamptz', name: 'deleted_at'})
+    @DeleteDateColumn({ type: 'timestamptz', name: 'deleted_at' })
     deletedAt?: Date | null;
 }
