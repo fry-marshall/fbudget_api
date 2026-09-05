@@ -12,5 +12,8 @@ export const ERRORS_MESSAGES = {
     },
     USER: {
         USER_DELETED: 'User deleted successfully'
+    },
+    SETTINGS: {
+        SETTINGS_NOT_FOUND: 'Settings not found'
     }
 }

@@ -6,6 +6,7 @@ import { AuthProvider, SubscriptionPlan, UserRole } from "./types";
 import { Currency } from "../settings/types";
 import { NotFoundException } from "@nestjs/common";
 import { ERRORS_MESSAGES } from "src/common/constants";
+import { SettingsService } from "../settings/settings.service";
 
 describe('UserService', () => {
 
@@ -13,6 +14,9 @@ describe('UserService', () => {
         findOne: jest.fn(),
         update: jest.fn(),
         delete: jest.fn()
+    };
+    let settingsRepositoryMocked = {
+        updateSettings: jest.fn(),
     };
     let userService: UserService;
 
@@ -38,6 +42,7 @@ describe('UserService', () => {
             providers: [
                 UserService,
                 { provide: getRepositoryToken(User), useValue: userRepositoryMocked },
+                { provide: SettingsService, useValue: settingsRepositoryMocked }
             ]
         }).compile()
 
@@ -197,6 +202,51 @@ describe('UserService', () => {
                 userRepositoryMocked.delete = jest.fn().mockRejectedValue(new Error('An error has occured'))
 
                 await expect(userService.deleteMe(userMocked.id!)).rejects.toThrow(new Error('An error has occured'))
+            })
+        })
+    })
+
+    describe('updateSettings', () => {
+        describe('Success cases', () => {
+            it('should update the user settings successfully', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue(userMocked)
+                settingsRepositoryMocked.updateSettings = jest.fn().mockResolvedValue({
+                    id: 'settings-id',
+                    primaryCurrency: Currency.USD,
+                    monthlyBudget: 300,
+                },)
+
+                const response = await userService.updateSettings(userMocked.id!, {primaryCurrency: Currency.USD, monthlyBudget: 300,})
+                expect(response.id).toBe('settings-id')
+                expect(response.primaryCurrency).toBe(Currency.USD)
+                expect(response.monthlyBudget).toBe(300)
+                expect(settingsRepositoryMocked.updateSettings).toHaveBeenLastCalledWith('settings-id', {primaryCurrency: Currency.USD, monthlyBudget: 300,})
+            })
+        })
+        describe('Failure cases', () => {
+            it('should throw NotFoundException when user doesn\'t exist', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue(null)
+
+                await expect(userService.updateSettings(userMocked.id!, {primaryCurrency: Currency.USD, monthlyBudget: 300,})).rejects.toThrow(new NotFoundException(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND))
+            })
+
+            it('should throw NotFoundException when user findOne throw exception', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockRejectedValue(new NotFoundException(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND))
+
+                await expect(userService.updateSettings(userMocked.id!, {primaryCurrency: Currency.USD, monthlyBudget: 300,})).rejects.toThrow(new NotFoundException(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND))
+            })
+
+            it('should throw NotFoundException when user settings doesn\'t exist', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue({...userMocked, settings: null})
+
+                await expect(userService.updateSettings(userMocked.id!, {primaryCurrency: Currency.USD, monthlyBudget: 300,})).rejects.toThrow(new NotFoundException(ERRORS_MESSAGES.SETTINGS.SETTINGS_NOT_FOUND))
+            })
+
+            it('should throw Error when user settings update fails', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue(userMocked)
+                settingsRepositoryMocked.updateSettings = jest.fn().mockRejectedValue(new Error('An error has occured'))
+
+                await expect(userService.updateSettings(userMocked.id!, {primaryCurrency: Currency.USD, monthlyBudget: 300,})).rejects.toThrow(new Error('An error has occured'))
             })
         })
     })

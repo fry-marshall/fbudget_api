@@ -5,13 +5,17 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { ERRORS_MESSAGES } from "src/common/constants";
 import { UserResponseDto } from "./dto/user-response.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
+import { UpdateSettingsDto } from "../settings/dto/update-settings.dto";
+import { SettingsResponseDto } from "../settings/dto/settings-response.dto";
+import { SettingsService } from "../settings/settings.service";
 
 @Injectable()
 export class UserService {
 
     constructor(
         @InjectRepository(User)
-        private userRepository: Repository<User>
+        private userRepository: Repository<User>,
+        private settingsService: SettingsService
     ) { }
 
     async getMe(userId: string): Promise<UserResponseDto> {
@@ -82,6 +86,23 @@ export class UserService {
         await this.userRepository.delete(user.id!)
 
         return { message: ERRORS_MESSAGES.USER.USER_DELETED }
+    }
+
+    async updateSettings(userId: string, updateSettingsDto: UpdateSettingsDto): Promise<SettingsResponseDto> {
+        const user = await this.userRepository.findOne({
+            select: {settings: true},
+            where: {id: userId}
+        },)
+
+        if(!user){
+            throw new NotFoundException(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND)
+        }
+
+        if(!user.settings){
+            throw new NotFoundException(ERRORS_MESSAGES.SETTINGS.SETTINGS_NOT_FOUND)
+        }
+        
+        return this.settingsService.updateSettings(user.settings.id!, updateSettingsDto)
     }
 
     private toDto(user: User): UserResponseDto {

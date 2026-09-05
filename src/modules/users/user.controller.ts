@@ -5,6 +5,8 @@ import { UserResponseDto } from "./dto/user-response.dto";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import type { PayloadJwt } from "src/common/interfaces";
+import { UpdateSettingsDto } from "../settings/dto/update-settings.dto";
+import { SettingsResponseDto } from "../settings/dto/settings-response.dto";
 
 @Controller('users')
 export class UserController {
@@ -27,7 +29,13 @@ export class UserController {
 
     @Delete('me')
     @UseGuards(JwtGuard)
-    deleteMe(@CurrentUser() user: PayloadJwt): Promise<UserResponseDto> {
+    deleteMe(@CurrentUser() user: PayloadJwt): Promise<{ message: string }> {
         return this.userService.deleteMe(user.id!)
+    }
+
+    @Put('me/settings')
+    @UseGuards(JwtGuard)
+    updateSettings(@CurrentUser() user: PayloadJwt, updateSettingsDto: UpdateSettingsDto): Promise<SettingsResponseDto> {
+        return this.userService.updateSettings(user.id, updateSettingsDto)
     }
 }
