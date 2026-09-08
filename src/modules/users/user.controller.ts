@@ -35,7 +35,7 @@ export class UserController {
 
     @Put('me/settings')
     @UseGuards(JwtGuard)
-    updateSettings(@CurrentUser() user: PayloadJwt, updateSettingsDto: UpdateSettingsDto): Promise<SettingsResponseDto> {
-        return this.userService.updateSettings(user.id, updateSettingsDto)
+    updateSettings(@CurrentUser() user: PayloadJwt, @Body() updateSettingsDto: UpdateSettingsDto): Promise<SettingsResponseDto> {
+        return this.userService.updateSettings(user.id!, updateSettingsDto)
     }
 }

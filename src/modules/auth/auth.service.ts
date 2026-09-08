@@ -12,6 +12,7 @@ import { MailService } from "src/common/services/mail.service";
 import { AuthProvider } from "../users/types";
 import { RefreshTokenService } from "../refresh-tokens/refresh-token.service";
 import { ERRORS_MESSAGES } from "src/common/constants";
+import { SettingsService } from "../settings/settings.service";
 
 @Injectable()
 export class AuthService {
@@ -22,6 +23,7 @@ export class AuthService {
         private configService: ConfigService,
         private mailService: MailService,
         private refreshTokenService: RefreshTokenService,
+        private settingsService: SettingsService,
         @InjectRepository(User)
         private userRepository: Repository<User>
     ) { }
@@ -33,10 +35,12 @@ export class AuthService {
         let user = await this.userRepository.findOne({ where: { email } });
 
         if (!user) {
+            const settings = await this.settingsService.createSettings();
             user = await this.userRepository.save({
                 email,
                 displayName: name,
-                authProviders: [AuthProvider.GOOGLE]
+                authProviders: [AuthProvider.GOOGLE],
+                settings,
             });
         }
         else if (user && !user.authProviders?.includes(AuthProvider.GOOGLE)) {
@@ -65,7 +69,8 @@ export class AuthService {
         let user = await this.userRepository.findOne({ where: { email } });
 
         if (!user) {
-            user = await this.userRepository.save({ email, authProviders: [AuthProvider.EMAIL] });
+            const settings = await this.settingsService.createSettings();
+            user = await this.userRepository.save({ email, authProviders: [AuthProvider.EMAIL], settings });
         }
         else if (user && !user.authProviders?.includes(AuthProvider.EMAIL)) {
             const authProviders: AuthProvider[] = [...user.authProviders!, AuthProvider.EMAIL]

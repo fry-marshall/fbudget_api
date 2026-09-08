@@ -83,25 +83,31 @@ export class UserService {
             throw new NotFoundException(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND);
         }
 
-        await this.userRepository.delete(user.id!)
+        await this.userRepository.softDelete(user.id!)
 
         return { message: ERRORS_MESSAGES.USER.USER_DELETED }
     }
 
     async updateSettings(userId: string, updateSettingsDto: UpdateSettingsDto): Promise<SettingsResponseDto> {
         const user = await this.userRepository.findOne({
-            select: {settings: true},
-            where: {id: userId}
+            select: {
+                settings: {
+                    id: true,
+                    primaryCurrency: true,
+                    monthlyBudget: true,
+                }
+            },
+            where: { id: userId }
         },)
 
-        if(!user){
+        if (!user) {
             throw new NotFoundException(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND)
         }
 
-        if(!user.settings){
+        if (!user.settings) {
             throw new NotFoundException(ERRORS_MESSAGES.SETTINGS.SETTINGS_NOT_FOUND)
         }
-        
+
         return this.settingsService.updateSettings(user.settings.id!, updateSettingsDto)
     }
 

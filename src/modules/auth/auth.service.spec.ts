@@ -10,6 +10,8 @@ import { MailService } from "src/common/services/mail.service"
 import { RefreshTokenService } from "../refresh-tokens/refresh-token.service"
 import { ERRORS_MESSAGES } from "src/common/constants"
 import { AuthProvider } from "../users/types"
+import { SettingsService } from "../settings/settings.service"
+import { Currency } from "../settings/types"
 
 
 const googleServiceMocked = {
@@ -38,6 +40,10 @@ let jwtServiceMocked = {
 
 let mailServiceMocked = {
     sendMail: jest.fn()
+}
+
+let settingsServiceMocked = {
+    createSettings: jest.fn()
 }
 
 let refreshTokenServiceMocked = {
@@ -80,6 +86,10 @@ describe('AuthService', () => {
                     useValue: refreshTokenServiceMocked
 
                 },
+                {
+                    provide: SettingsService,
+                    useValue: settingsServiceMocked
+                }
             ]
         }).compile()
 
@@ -114,6 +124,8 @@ describe('AuthService', () => {
 
                 const tokens = await authService.googleAuthentication('idToken')
 
+                expect(settingsServiceMocked.createSettings).toHaveBeenCalledTimes(0)
+
                 expect(tokens).toStrictEqual({
                     accessToken: 'access-token',
                     refreshToken: 'refresh-token',
@@ -139,8 +151,15 @@ describe('AuthService', () => {
                     email: 'test@gmail.com'
                 })
 
+                settingsServiceMocked.createSettings = jest.fn().mockResolvedValue({
+                    id: 'settings-id',
+                    primaryCurrency: Currency.EUR,
+                    monthlyBudget: null,
+                })
+
                 const tokens = await authService.googleAuthentication('idToken')
 
+                expect(settingsServiceMocked.createSettings).toHaveBeenCalledTimes(1)
                 expect(tokens).toStrictEqual({
                     accessToken: 'access-token',
                     refreshToken: 'refresh-token',

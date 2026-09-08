@@ -35,6 +35,10 @@ export class SettingsService {
         return this.toDto(settings);
     }
 
+    async createSettings(): Promise<Settings> {
+        return this.settingsRepository.save({});
+    }
+
     private toDto(settings: Settings): SettingsResponseDto {
         return {
             id: settings.id,
