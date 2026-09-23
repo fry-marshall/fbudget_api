@@ -9,7 +9,7 @@ export class RefreshToken {
     @Column({unique: true})
     token?: string
 
-    @ManyToOne(() => User, (user) => user.refreshTokens)
+    @ManyToOne(() => User, (user) => user.refreshTokens, { onDelete: 'CASCADE' })
     @JoinColumn()
     user?: User;
 }

@@ -36,11 +36,11 @@ export class User {
     @Column({ name: 'otp_expires_at', nullable: true, type: 'timestamptz' })
     otpExpiresAt?: Date;
 
-    @OneToOne(() => Settings, { cascade: true })
+    @OneToOne(() => Settings, { cascade: ['insert'], onDelete: 'CASCADE' })
     @JoinColumn()
     settings?: Settings;
 
-    @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user, { cascade: true })
+    @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
     refreshTokens?: RefreshToken[]
 
     @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })

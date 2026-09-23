@@ -13,6 +13,6 @@ import { SettingsModule } from "../settings/settings.module";
 @Module({
     imports: [JwtModule.register({}), TypeOrmModule.forFeature([User]), RefreshTokenModule, SettingsModule],
     controllers: [AuthController],
-    providers: [AuthService, GooglePassportStrategy , GoogleService, MailService]
+    providers: [AuthService, /* GooglePassportStrategy , */ GoogleService, MailService]
 })
 export class AuthModule { }
