@@ -120,11 +120,11 @@ export class UserService {
             country: user.country,
             plan: user.plan,
             role: user.role,
-            settings: user.settings ? {
+            settings: {
                 id: user.settings?.id,
                 primaryCurrency: user.settings?.primaryCurrency,
                 monthlyBudget: user.settings?.monthlyBudget,
-            } : null,
+            },
             createdAt: user.createdAt
         }
     }

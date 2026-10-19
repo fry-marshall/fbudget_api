@@ -4,16 +4,16 @@ import { Settings } from "../settings/settings.entity";
 import { RefreshToken } from "../refresh-tokens/refresh-token.entity";
 
 @Entity('users')
-@Index('UQ_users_email_active', ['email'], { unique: true, where: '"deleted_at" IS NULL' })
+@Index('UQ_users_email_active', ['email'], { unique: true, where: '"deletedAt" IS NULL' })
 export class User {
     @PrimaryGeneratedColumn('uuid')
     id?: string;
 
     @Column()
-    email?: string
+    email?: string;
 
     @Column({ type: 'enum', name: 'auth_provider', enum: AuthProvider, array: true, default: [] })
-    authProviders?: AuthProvider[]
+    authProviders?: AuthProvider[];
 
     @Column({ nullable: true, name: 'display_name' })
     displayName?: string
@@ -31,24 +31,23 @@ export class User {
     role?: UserRole;
 
     @Column({ name: 'otp_code', nullable: true })
-    otpCode?: string
+    otpCode?: string;
 
     @Column({ name: 'otp_expires_at', nullable: true, type: 'timestamptz' })
     otpExpiresAt?: Date;
 
-    @OneToOne(() => Settings, { cascade: ['insert'], onDelete: 'CASCADE' })
-    @JoinColumn()
+    @OneToOne(() => Settings, (settings) => settings.user, { cascade: ['insert'] })
     settings?: Settings;
 
     @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
     refreshTokens?: RefreshToken[]
 
-    @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
+    @CreateDateColumn({ type: 'timestamptz' })
     createdAt?: Date;
 
-    @UpdateDateColumn({ type: 'timestamptz', name: 'updated_at' })
+    @UpdateDateColumn({ type: 'timestamptz' })
     updatedAt?: Date;
 
-    @DeleteDateColumn({ type: 'timestamptz', name: 'deleted_at' })
+    @DeleteDateColumn({ type: 'timestamptz' })
     deletedAt?: Date | null;
 }

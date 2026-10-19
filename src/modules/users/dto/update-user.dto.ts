@@ -1,15 +1,15 @@
-import { IsNotEmpty, IsOptional, IsString, IsUUID } from "class-validator";
+import { IsOptional, IsString } from "class-validator";
 
 export class UpdateUserDto {
     @IsOptional()
     @IsString()
-    displayName?: string
+    displayName?: string;
 
     @IsOptional()
     @IsString()
-    city?: string
+    city?: string;
 
     @IsOptional()
     @IsString()
-    country?: string
+    country?: string;
 }

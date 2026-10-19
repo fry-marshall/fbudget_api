@@ -10,6 +10,6 @@ export class UserResponseDto {
     country?: string;
     plan?: SubscriptionPlan;
     role?: UserRole;
-    settings?: SettingsResponseDto | null;
+    settings?: SettingsResponseDto;
     createdAt?: Date;
 }

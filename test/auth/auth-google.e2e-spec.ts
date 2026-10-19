@@ -35,7 +35,6 @@ describe("POST auth/google", () => {
         await app.init();
     })
 
-
     beforeEach(async () => {
         await settingsRepository.deleteAll()
         await userRepository.deleteAll()
@@ -138,7 +137,6 @@ describe("POST auth/google", () => {
             expect(response.body.message).toBe('Invalid id token')
         })
     })
-
 
     afterAll(async () => {
         await app.close()

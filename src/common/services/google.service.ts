@@ -16,13 +16,12 @@ export class GoogleService {
     }
 
     async verifyIdToken(idToken: string): Promise<GoogleToken> {
-        console.log("totototo")
         if (!idToken || typeof idToken !== 'string') {
             throw new BadRequestException('Id token is null or not a string')
         }
         try {
             const infos = await this.client.verifyIdToken({
-                idToken: idToken,
+                idToken,
                 audience: this.configService.get('GOOGLE_CLIENT_ID') ?? ''
             })
             return {

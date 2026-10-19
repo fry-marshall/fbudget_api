@@ -1,5 +1,6 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { Currency } from "./types";
+import { User } from "../users/user.entity";
 
 @Entity('settings')
 export class Settings {
@@ -12,4 +13,14 @@ export class Settings {
 
     @Column({ type: 'int', nullable: true, name: 'monthly_budget' })
     monthlyBudget?: number;
+
+    @OneToOne(() => User, (user) => user.settings, { onDelete: 'CASCADE' })
+    @JoinColumn({ name: 'user_id' })
+    user?: User;
+
+    @CreateDateColumn({ type: 'timestamptz' })
+    createdAt?: Date;
+
+    @UpdateDateColumn({ type: 'timestamptz' })
+    updatedAt?: Date;
 }
