@@ -27,11 +27,12 @@ export const createUserWithRefreshToken = async (
     refreshTokenRepository: Repository<RefreshToken>,
     jwtService: JwtService,
     configService: ConfigService,
+    authProvider: AuthProvider = AuthProvider.EMAIL
 ): Promise<{ user: User, refreshToken: string }> => {
     const user = await userRepository.save({
         displayName: 'marshall',
         email: TEST_EMAIL,
-        authProviders: [AuthProvider.EMAIL],
+        authProviders: [authProvider],
         settings: {}
     });
 
@@ -43,3 +44,16 @@ export const createUserWithRefreshToken = async (
 
     return { user, refreshToken }
 }
+
+/**
+ * Sign an access token the same way as AuthService
+ */
+export const signAccessToken = (
+    jwtService: JwtService,
+    configService: ConfigService,
+    user: User,
+    expiresIn: string | number = configService.get('ACCESS_TOKEN_EXPIRY')!
+): string => jwtService.sign(
+    { id: user.id, email: user.email },
+    { secret: configService.get('ACCESS_TOKEN_SECRET'), expiresIn: expiresIn as any }
+)

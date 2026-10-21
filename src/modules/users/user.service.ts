@@ -22,8 +22,8 @@ export class UserService {
         const user = await this.userRepository.findOne({
             select: {
                 id: true,
+                displayName: true,
                 email: true,
-                authProviders: true,
                 city: true,
                 country: true,
                 plan: true,
@@ -34,6 +34,9 @@ export class UserService {
                     monthlyBudget: true,
                 },
                 createdAt: true
+            },
+            relations: {
+                settings: true
             },
             where: {
                 id: userId
