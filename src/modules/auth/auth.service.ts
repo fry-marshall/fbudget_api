@@ -75,23 +75,7 @@ export class AuthService {
             });
         }
 
-        const otpCode = generateOtp();
-        const expiredDateIn15Minutes = Date.now() + 900000
-
-        await this.userRepository.update(user?.id!, {
-            otpCode,
-            otpExpiresAt: new Date(expiredDateIn15Minutes)
-        });
-
-        await this.mailService.sendMail({
-            receiver: user.email,
-            subject: 'Connexion à FBudget : Voici le code de vérification à 6 chiffres',
-            context: {
-                code: otpCode,
-                name: user.displayName
-            },
-            template: 'otp-verification',
-        })
+        await this.sendOtp(user);
 
         return {
             message: "OTP send successfully"
@@ -101,17 +85,28 @@ export class AuthService {
     async requestOtp(email: string): Promise<{ message: string }> {
         let user = await this.userRepository.findOne({ where: { email } });
 
-        if (!user) {
+        if (!user || !user.authProviders?.includes(AuthProvider.EMAIL)) {
             // To not let any attacker have the information this account exists or not
             return {
                 message: "OTP send successfully"
             };
         }
 
+        await this.sendOtp(user);
+
+        return {
+            message: "OTP send successfully"
+        };
+    }
+
+    /**
+     * Generate a new OTP valid 15 minutes, save it and send it by email
+     */
+    private async sendOtp(user: User): Promise<void> {
         const otpCode = generateOtp();
         const expiredDateIn15Minutes = Date.now() + 900000
 
-        await this.userRepository.update(user?.id!, {
+        await this.userRepository.update(user.id!, {
             otpCode,
             otpExpiresAt: new Date(expiredDateIn15Minutes)
         });
@@ -125,10 +120,6 @@ export class AuthService {
             },
             template: 'otp-verification',
         })
-
-        return {
-            message: "OTP send successfully"
-        };
     }
 
     async verifyOtp(email: string, code: string): Promise<AuthResponseDto> {

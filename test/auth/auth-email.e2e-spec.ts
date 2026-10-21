@@ -10,20 +10,7 @@ import request from 'supertest';
 import { AuthProvider } from "src/modules/users/types";
 import { ResponseInterceptor } from "src/common/interceptors/response.interceptor";
 import { GlobalExceptionFilter } from "src/common/filters/global-exception.filter";
-
-const TEST_EMAIL = 'test@gmail.com';
-const OTP_VALIDITY_MS = 15 * 60_000;
-
-/**
- * Check the OTP is a 6 digits code expiring in ~15 minutes
- */
-const expectValidOtp = (user: User | null) => {
-    expect(user?.otpCode).toMatch(/^\d{6}$/)
-
-    const expiresIn = user!.otpExpiresAt!.getTime() - Date.now()
-    expect(expiresIn).toBeGreaterThan(OTP_VALIDITY_MS - 60_000)
-    expect(expiresIn).toBeLessThanOrEqual(OTP_VALIDITY_MS)
-}
+import { TEST_EMAIL, expectValidOtp } from "../helpers";
 
 describe('POST auth/email', () => {
     let app: INestApplication;
@@ -86,6 +73,7 @@ describe('POST auth/email', () => {
             expect(mailServiceMocked.sendMail).toHaveBeenCalledTimes(1)
             expect(mailServiceMocked.sendMail).toHaveBeenCalledWith(expect.objectContaining({
                 receiver: TEST_EMAIL,
+                subject: 'Connexion à FBudget : Voici le code de vérification à 6 chiffres',
                 template: 'otp-verification',
                 context: expect.objectContaining({ code: userCreated?.otpCode })
             }))
