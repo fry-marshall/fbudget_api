@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { AuthResponseDto } from "./dto/auth-response.dto";
 import { GoogleService } from "src/common/services/google.service";
@@ -47,15 +48,7 @@ export class AuthService {
             });
         }
 
-        const payload = {
-            id: user.id,
-            email: user.email,
-        }
-
-        const tokens = {
-            accessToken: this.jwtService.sign(payload, { secret: this.configService.get('ACCESS_TOKEN_SECRET'), expiresIn: this.configService.get('ACCESS_TOKEN_EXPIRY') }),
-            refreshToken: this.jwtService.sign(payload, { secret: this.configService.get('REFRESH_TOKEN_SECRET'), expiresIn: this.configService.get('REFRESH_TOKEN_EXPIRY') }),
-        }
+        const tokens = this.generateTokens(user.id!, user.email!)
 
         await this.refreshTokenService.saveRefreshToken(user.id!, tokens.refreshToken)
 
@@ -100,6 +93,18 @@ export class AuthService {
     }
 
     /**
+     * Sign a new access and refresh token pair, the jti makes each refresh token unique
+     */
+    private generateTokens(id: string, email: string): { accessToken: string, refreshToken: string } {
+        const payload = { id, email }
+
+        return {
+            accessToken: this.jwtService.sign(payload, { secret: this.configService.get('ACCESS_TOKEN_SECRET'), expiresIn: this.configService.get('ACCESS_TOKEN_EXPIRY') }),
+            refreshToken: this.jwtService.sign({ ...payload, jti: randomUUID() }, { secret: this.configService.get('REFRESH_TOKEN_SECRET'), expiresIn: this.configService.get('REFRESH_TOKEN_EXPIRY') }),
+        }
+    }
+
+    /**
      * Generate a new OTP valid 15 minutes, save it and send it by email
      */
     private async sendOtp(user: User): Promise<void> {
@@ -138,15 +143,7 @@ export class AuthService {
             otpExpiresAt: null,
         })
 
-        const payload = {
-            id: user.id,
-            email: user.email
-        }
-
-        const tokens = {
-            accessToken: this.jwtService.sign(payload, { secret: this.configService.get('ACCESS_TOKEN_SECRET'), expiresIn: this.configService.get('ACCESS_TOKEN_EXPIRY') }),
-            refreshToken: this.jwtService.sign(payload, { secret: this.configService.get('REFRESH_TOKEN_SECRET'), expiresIn: this.configService.get('REFRESH_TOKEN_EXPIRY') }),
-        }
+        const tokens = this.generateTokens(user.id!, user.email!)
 
         await this.refreshTokenService.saveRefreshToken(user.id!, tokens.refreshToken)
 
@@ -168,12 +165,9 @@ export class AuthService {
                 throw new UnauthorizedException(ERRORS_MESSAGES.AUTH.TOKEN_NOT_FOUND)
             }
             else {
-                const tokens = {
-                    accessToken: this.jwtService.sign(payload, { secret: this.configService.get('ACCESS_TOKEN_SECRET'), expiresIn: this.configService.get('ACCESS_TOKEN_EXPIRY') }),
-                    refreshToken: this.jwtService.sign(payload, { secret: this.configService.get('REFRESH_TOKEN_SECRET'), expiresIn: this.configService.get('REFRESH_TOKEN_EXPIRY') }),
-                }
-                await this.refreshTokenService.saveRefreshToken(payload.id, tokens.refreshToken);
+                const tokens = this.generateTokens(payload.id, payload.email)
                 await this.refreshTokenService.removeRefreshToken(refreshTokenParam)
+                await this.refreshTokenService.saveRefreshToken(payload.id, tokens.refreshToken);
 
                 return tokens;
             }
