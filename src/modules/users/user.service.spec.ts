@@ -123,7 +123,9 @@ describe('UserService', () => {
                     createdAt: new Date(),
                 }
 
-                userRepositoryMocked.findOne = jest.fn().mockResolvedValue(user)
+                userRepositoryMocked.findOne = jest.fn()
+                    .mockResolvedValueOnce(user)
+                    .mockResolvedValueOnce({ ...user, displayName: 'toto' })
                 userRepositoryMocked.update = jest.fn().mockResolvedValue(null)
 
                 const response = await userService.updateMe('user-id', { displayName: 'toto' });

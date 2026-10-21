@@ -52,7 +52,7 @@ export class UserService {
 
     async updateMe(userId: string, updateUserDto: UpdateUserDto): Promise<UserResponseDto> {
 
-        let user = await this.userRepository.findOne({
+        const user = await this.userRepository.findOne({
             where: {
                 id: userId
             },
@@ -66,12 +66,7 @@ export class UserService {
             ...updateUserDto
         })
 
-        user = {
-            ...user,
-            ...updateUserDto
-        }
-
-        return this.toDto(user);
+        return this.getMe(user.id!);
     }
 
     async deleteMe(userId: string): Promise<{ message: string }> {

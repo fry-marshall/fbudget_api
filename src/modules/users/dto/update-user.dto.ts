@@ -1,15 +1,19 @@
-import { IsOptional, IsString } from "class-validator";
+import { IsNotEmpty, IsString, ValidateIf } from "class-validator";
 
+// ValidateIf instead of IsOptional so that null is rejected, only undefined skips validation
 export class UpdateUserDto {
-    @IsOptional()
+    @ValidateIf((_, value) => value !== undefined)
     @IsString()
+    @IsNotEmpty()
     displayName?: string;
 
-    @IsOptional()
+    @ValidateIf((_, value) => value !== undefined)
     @IsString()
+    @IsNotEmpty()
     city?: string;
 
-    @IsOptional()
+    @ValidateIf((_, value) => value !== undefined)
     @IsString()
+    @IsNotEmpty()
     country?: string;
 }
