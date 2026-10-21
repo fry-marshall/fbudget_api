@@ -2,6 +2,7 @@ import { BadRequestException, INestApplication } from "@nestjs/common"
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { AppModule } from 'src/app.module';
+import { setupApp } from 'src/setup-app';
 import { GoogleService } from "src/common/services/google.service";
 import { Settings } from "src/modules/settings/settings.entity";
 import { Currency } from "src/modules/settings/types";
@@ -29,6 +30,7 @@ describe("POST auth/google", () => {
             .compile()
 
         app = moduleRef.createNestApplication();
+        setupApp(app)
         userRepository = moduleRef.get<Repository<User>>(getRepositoryToken(User))
         settingsRepository = moduleRef.get<Repository<Settings>>(getRepositoryToken(Settings))
 
@@ -72,8 +74,8 @@ describe("POST auth/google", () => {
             });
 
             expect(response.statusCode).toBe(201)
-            expect(response.body.accessToken).toBeTruthy()
-            expect(response.body.refreshToken).toBeTruthy()
+            expect(response.body.data.accessToken).toBeTruthy()
+            expect(response.body.data.refreshToken).toBeTruthy()
             expect(user?.email).toBe(userEmail)
             expect(user?.authProviders).toContain(AuthProvider.GOOGLE)
             expect(user?.settings?.monthlyBudget).toBeFalsy()
@@ -114,8 +116,8 @@ describe("POST auth/google", () => {
             });
 
             expect(response.statusCode).toBe(201)
-            expect(response.body.accessToken).toBeTruthy()
-            expect(response.body.refreshToken).toBeTruthy()
+            expect(response.body.data.accessToken).toBeTruthy()
+            expect(response.body.data.refreshToken).toBeTruthy()
             expect(user?.id).toEqual(userWithEmailProvider.id)
             expect(user?.email).toBe(userEmail)
             expect(user?.authProviders).toContain(AuthProvider.GOOGLE)

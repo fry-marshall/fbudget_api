@@ -1,12 +1,11 @@
-import { INestApplication, ValidationPipe } from "@nestjs/common"
+import { INestApplication } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { AppModule } from "src/app.module";
+import { setupApp } from "src/setup-app";
 import { ERRORS_MESSAGES } from "src/common/constants";
-import { GlobalExceptionFilter } from "src/common/filters/global-exception.filter";
-import { ResponseInterceptor } from "src/common/interceptors/response.interceptor";
 import { MailService } from "src/common/services/mail.service";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
 import { Settings } from "src/modules/settings/settings.entity";
@@ -35,9 +34,7 @@ describe('POST auth/refresh', () => {
             .compile()
 
         app = moduleRef.createNestApplication()
-        app.useGlobalInterceptors(new ResponseInterceptor())
-        app.useGlobalFilters(new GlobalExceptionFilter())
-        app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+        setupApp(app)
         userRepository = moduleRef.get<Repository<User>>(getRepositoryToken(User))
         settingsRepository = moduleRef.get<Repository<Settings>>(getRepositoryToken(Settings))
         refreshTokenRepository = moduleRef.get<Repository<RefreshToken>>(getRepositoryToken(RefreshToken))

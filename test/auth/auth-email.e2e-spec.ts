@@ -1,15 +1,14 @@
-import { INestApplication, ValidationPipe } from "@nestjs/common"
+import { INestApplication } from "@nestjs/common"
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { AppModule } from "src/app.module";
+import { setupApp } from "src/setup-app";
 import { MailService } from "src/common/services/mail.service";
 import { Settings } from "src/modules/settings/settings.entity";
 import { User } from "src/modules/users/user.entity";
 import { Repository } from "typeorm";
 import request from 'supertest';
 import { AuthProvider } from "src/modules/users/types";
-import { ResponseInterceptor } from "src/common/interceptors/response.interceptor";
-import { GlobalExceptionFilter } from "src/common/filters/global-exception.filter";
 import { TEST_EMAIL, expectValidOtp } from "../helpers";
 
 describe('POST auth/email', () => {
@@ -30,9 +29,7 @@ describe('POST auth/email', () => {
             .compile()
 
         app = moduleRef.createNestApplication()
-        app.useGlobalInterceptors(new ResponseInterceptor())
-        app.useGlobalFilters(new GlobalExceptionFilter())
-        app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+        setupApp(app)
         settingsRepository = moduleRef.get<Repository<Settings>>(getRepositoryToken(Settings))
         userRepository = moduleRef.get<Repository<User>>(getRepositoryToken(User))
 
