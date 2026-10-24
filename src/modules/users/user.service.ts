@@ -8,6 +8,7 @@ import { UpdateUserDto } from "./dto/update-user.dto";
 import { UpdateSettingsDto } from "../settings/dto/update-settings.dto";
 import { SettingsResponseDto } from "../settings/dto/settings-response.dto";
 import { SettingsService } from "../settings/settings.service";
+import { RefreshTokenService } from "../refresh-tokens/refresh-token.service";
 
 @Injectable()
 export class UserService {
@@ -15,7 +16,8 @@ export class UserService {
     constructor(
         @InjectRepository(User)
         private userRepository: Repository<User>,
-        private settingsService: SettingsService
+        private settingsService: SettingsService,
+        private refreshTokenService: RefreshTokenService
     ) { }
 
     async getMe(userId: string): Promise<UserResponseDto> {
@@ -71,7 +73,7 @@ export class UserService {
 
     async deleteMe(userId: string): Promise<{ message: string }> {
 
-        let user = await this.userRepository.findOne({
+        const user = await this.userRepository.findOne({
             where: {
                 id: userId
             },
@@ -81,6 +83,7 @@ export class UserService {
             throw new NotFoundException(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND);
         }
 
+        await this.refreshTokenService.removeUserRefreshTokens(user.id!)
         await this.userRepository.softDelete(user.id!)
 
         return { message: ERRORS_MESSAGES.USER.USER_DELETED }
