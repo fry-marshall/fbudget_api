@@ -98,6 +98,9 @@ export class UserService {
                     monthlyBudget: true,
                 }
             },
+            relations: {
+                settings: true
+            },
             where: { id: userId }
         },)
 
