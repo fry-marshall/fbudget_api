@@ -1,16 +1,15 @@
 import Joi from 'joi';
 
-const NODE_ENV = process.env.NODE_ENV ?? 'dev'
 const optionalString = Joi.string().optional()
 const optionalNumber = Joi.number().optional()
 
-const isStringNotTestRequired = Joi.string().when(NODE_ENV, {
+const isStringNotTestRequired = Joi.string().when('NODE_ENV', {
   not: 'test',
   then: Joi.required(),
   otherwise: optionalString
 })
 
-const isNumberNotTestRequired = Joi.number().when(NODE_ENV, {
+const isNumberNotTestRequired = Joi.number().when('NODE_ENV', {
   not: 'test',
   then: Joi.required(),
   otherwise: optionalNumber
