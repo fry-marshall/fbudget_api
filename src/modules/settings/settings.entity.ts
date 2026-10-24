@@ -1,26 +1,17 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, Entity, JoinColumn, OneToOne } from "typeorm";
+import { AbstractEntity } from "src/common/entities/abstract.entity";
 import { Currency } from "./types";
 import { User } from "../users/user.entity";
 
 @Entity('settings')
-export class Settings {
-
-    @PrimaryGeneratedColumn('uuid')
-    id?: string;
-
-    @Column({ type: 'enum', nullable: true, name: 'primary_currency', enum: Currency, default: Currency.EUR })
+export class Settings extends AbstractEntity {
+    @Column({ type: 'enum', nullable: true, enum: Currency, default: Currency.EUR })
     primaryCurrency?: Currency;
 
-    @Column({ type: 'int', nullable: true, name: 'monthly_budget' })
+    @Column({ type: 'int', nullable: true })
     monthlyBudget?: number;
 
     @OneToOne(() => User, (user) => user.settings, { onDelete: 'CASCADE' })
-    @JoinColumn({ name: 'user_id' })
+    @JoinColumn()
     user?: User;
-
-    @CreateDateColumn({ type: 'timestamptz' })
-    createdAt?: Date;
-
-    @UpdateDateColumn({ type: 'timestamptz' })
-    updatedAt?: Date;
 }

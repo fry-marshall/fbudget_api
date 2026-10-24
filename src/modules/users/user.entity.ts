@@ -1,21 +1,19 @@
-import { Column, CreateDateColumn, DeleteDateColumn, Entity, Index, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, DeleteDateColumn, Entity, Index, JoinColumn, OneToMany, OneToOne } from "typeorm";
+import { AbstractEntity } from "src/common/entities/abstract.entity";
 import { AuthProvider, SubscriptionPlan, UserRole } from "./types";
 import { Settings } from "../settings/settings.entity";
 import { RefreshToken } from "../refresh-tokens/refresh-token.entity";
 
 @Entity('users')
 @Index('UQ_users_email_active', ['email'], { unique: true, where: '"deletedAt" IS NULL' })
-export class User {
-    @PrimaryGeneratedColumn('uuid')
-    id?: string;
-
+export class User extends AbstractEntity {
     @Column()
     email?: string;
 
-    @Column({ type: 'enum', name: 'auth_provider', enum: AuthProvider, array: true, default: [] })
+    @Column({ type: 'enum', enum: AuthProvider, array: true, default: [] })
     authProviders?: AuthProvider[];
 
-    @Column({ nullable: true, name: 'display_name' })
+    @Column({ nullable: true })
     displayName?: string
 
     @Column({ nullable: true })
@@ -30,10 +28,10 @@ export class User {
     @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
     role?: UserRole;
 
-    @Column({ name: 'otp_code', nullable: true })
+    @Column({ nullable: true })
     otpCode?: string;
 
-    @Column({ name: 'otp_expires_at', nullable: true, type: 'timestamptz' })
+    @Column({ nullable: true, type: 'timestamptz' })
     otpExpiresAt?: Date;
 
     @OneToOne(() => Settings, (settings) => settings.user, { cascade: ['insert'] })
@@ -41,12 +39,6 @@ export class User {
 
     @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
     refreshTokens?: RefreshToken[]
-
-    @CreateDateColumn({ type: 'timestamptz' })
-    createdAt?: Date;
-
-    @UpdateDateColumn({ type: 'timestamptz' })
-    updatedAt?: Date;
 
     @DeleteDateColumn({ type: 'timestamptz' })
     deletedAt?: Date | null;
