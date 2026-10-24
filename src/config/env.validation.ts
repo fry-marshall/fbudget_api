@@ -28,5 +28,4 @@ export const envValidationSchema = Joi.object({
   MAIL_USERNAME: isStringNotTestRequired, 
   MAIL_PASSWORD: isStringNotTestRequired, 
   GOOGLE_CLIENT_ID: isStringNotTestRequired, 
-  GOOGLE_CLIENT_SECRET: isStringNotTestRequired,
 });

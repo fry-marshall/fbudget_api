@@ -5,7 +5,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { envValidationSchema } from './config/env.validation';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { databaseConfig } from './config/database.config';
-import { TestController } from './modules/test/test.controller';
 import { AuthModule } from './modules/auth/auth.module';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/adapters/handlebars.adapter';
@@ -49,7 +48,7 @@ import { UserModule } from './modules/users/user.module';
     }),
     UserModule
   ],
-  controllers: [AppController, TestController],
+  controllers: [AppController],
   providers: [AppService, JwtStrategy],
 })
 export class AppModule { }
