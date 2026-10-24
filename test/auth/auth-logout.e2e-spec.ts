@@ -14,6 +14,7 @@ import { randomUUID } from "crypto";
 import request from 'supertest';
 import { Repository } from "typeorm";
 import { createUserWithRefreshToken } from "../helpers";
+import { getTokenExpiry } from "src/common/helpers/helpers";
 
 describe('POST auth/logout', () => {
     let app: INestApplication;
@@ -75,7 +76,7 @@ describe('POST auth/logout', () => {
                 { id: user.id, email: user.email, jti: randomUUID() },
                 { secret: configService.get('REFRESH_TOKEN_SECRET'), expiresIn: configService.get('REFRESH_TOKEN_EXPIRY') }
             )
-            await refreshTokenRepository.save({ token: otherDeviceRefreshToken, user: { id: user.id } })
+            await refreshTokenRepository.save({ token: otherDeviceRefreshToken, expiresAt: getTokenExpiry(jwtService, otherDeviceRefreshToken), user: { id: user.id } })
 
             const response = await request(app.getHttpServer())
                 .post('/auth/logout')
@@ -121,7 +122,7 @@ describe('POST auth/logout', () => {
                 { id: user.id, email: user.email },
                 { secret: configService.get('REFRESH_TOKEN_SECRET'), expiresIn: -10 }
             )
-            await refreshTokenRepository.save({ token: expiredRefreshToken, user: { id: user.id } })
+            await refreshTokenRepository.save({ token: expiredRefreshToken, expiresAt: getTokenExpiry(jwtService, expiredRefreshToken), user: { id: user.id } })
 
             const response = await request(app.getHttpServer())
                 .post('/auth/logout')

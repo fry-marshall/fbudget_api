@@ -1,10 +1,11 @@
 import { INestApplication } from "@nestjs/common"
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
+import { JwtService } from "@nestjs/jwt";
 import { AppModule } from "src/app.module";
 import { setupApp } from "src/setup-app";
 import { ERRORS_MESSAGES } from "src/common/constants";
-import { generateOtp } from "src/common/helpers/helpers";
+import { generateOtp, getTokenExpiry } from "src/common/helpers/helpers";
 import { MailService } from "src/common/services/mail.service";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
 import { Settings } from "src/modules/settings/settings.entity";
@@ -22,6 +23,7 @@ describe('POST auth/verify-otp', () => {
     let userRepository: Repository<User>;
     let settingsRepository: Repository<Settings>;
     let refreshTokenRepository: Repository<RefreshToken>;
+    let jwtService: JwtService;
 
     beforeAll(async () => {
         const moduleRef = await Test.createTestingModule({
@@ -36,6 +38,7 @@ describe('POST auth/verify-otp', () => {
         userRepository = moduleRef.get<Repository<User>>(getRepositoryToken(User))
         settingsRepository = moduleRef.get<Repository<Settings>>(getRepositoryToken(Settings))
         refreshTokenRepository = moduleRef.get<Repository<RefreshToken>>(getRepositoryToken(RefreshToken))
+        jwtService = moduleRef.get(JwtService)
 
         await app.init()
     })
@@ -76,6 +79,8 @@ describe('POST auth/verify-otp', () => {
             expect(userVerified?.otpExpiresAt).toBeNull()
             expect(refreshTokens).toHaveLength(1)
             expect(refreshTokens[0].token).toBe(response.body.data.refreshToken)
+            expect(refreshTokens[0].expiresAt).toEqual(getTokenExpiry(jwtService, response.body.data.refreshToken))
+            expect(refreshTokens[0].expiresAt!.getTime()).toBeGreaterThan(Date.now())
         })
     })
 

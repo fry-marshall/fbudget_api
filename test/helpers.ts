@@ -1,5 +1,6 @@
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
+import { getTokenExpiry } from "src/common/helpers/helpers";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
 import { AuthProvider } from "src/modules/users/types";
 import { User } from "src/modules/users/user.entity";
@@ -40,7 +41,7 @@ export const createUserWithRefreshToken = async (
         { id: user.id, email: user.email },
         { secret: configService.get('REFRESH_TOKEN_SECRET'), expiresIn: configService.get('REFRESH_TOKEN_EXPIRY') }
     )
-    await refreshTokenRepository.save({ token: refreshToken, user: { id: user.id } })
+    await refreshTokenRepository.save({ token: refreshToken, expiresAt: getTokenExpiry(jwtService, refreshToken), user: { id: user.id } })
 
     return { user, refreshToken }
 }

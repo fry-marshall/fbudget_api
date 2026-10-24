@@ -13,6 +13,7 @@ import { User } from "src/modules/users/user.entity";
 import request from 'supertest';
 import { Repository } from "typeorm";
 import { createUserWithRefreshToken } from "../helpers";
+import { getTokenExpiry } from "src/common/helpers/helpers";
 
 describe('POST auth/refresh', () => {
     let app: INestApplication;
@@ -81,6 +82,8 @@ describe('POST auth/refresh', () => {
             expect(response.body.data.refreshToken).not.toBe(refreshToken)
             expect(refreshTokens).toHaveLength(1)
             expect(refreshTokens[0].token).toBe(response.body.data.refreshToken)
+            expect(refreshTokens[0].expiresAt).toEqual(getTokenExpiry(jwtService, response.body.data.refreshToken))
+            expect(refreshTokens[0].expiresAt!.getTime()).toBeGreaterThan(Date.now())
         })
 
         it('should reject the old refresh token once it has been rotated', async () => {
@@ -132,7 +135,7 @@ describe('POST auth/refresh', () => {
                 { id: user.id, email: user.email },
                 { secret: configService.get('REFRESH_TOKEN_SECRET'), expiresIn: -10 }
             )
-            await refreshTokenRepository.save({ token: expiredRefreshToken, user: { id: user.id } })
+            await refreshTokenRepository.save({ token: expiredRefreshToken, expiresAt: getTokenExpiry(jwtService, expiredRefreshToken), user: { id: user.id } })
 
             const response = await request(app.getHttpServer())
                 .post('/auth/refresh')
