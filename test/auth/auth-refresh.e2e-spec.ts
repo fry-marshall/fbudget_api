@@ -61,7 +61,7 @@ describe('POST auth/refresh', () => {
             const { refreshToken } = await createUserWithRefreshToken(userRepository, refreshTokenRepository, jwtService, configService)
 
             const response = await request(app.getHttpServer())
-                .post('/auth/refresh')
+                .post('/api/v1/auth/refresh')
                 .send({ refreshToken })
 
             expect(response.statusCode).toBe(201)
@@ -73,7 +73,7 @@ describe('POST auth/refresh', () => {
             const { user, refreshToken } = await createUserWithRefreshToken(userRepository, refreshTokenRepository, jwtService, configService)
 
             const response = await request(app.getHttpServer())
-                .post('/auth/refresh')
+                .post('/api/v1/auth/refresh')
                 .send({ refreshToken })
 
             const refreshTokens = await refreshTokenRepository.find({ where: { user: { id: user.id } } })
@@ -90,11 +90,11 @@ describe('POST auth/refresh', () => {
             const { refreshToken } = await createUserWithRefreshToken(userRepository, refreshTokenRepository, jwtService, configService)
 
             const firstResponse = await request(app.getHttpServer())
-                .post('/auth/refresh')
+                .post('/api/v1/auth/refresh')
                 .send({ refreshToken })
 
             const secondResponse = await request(app.getHttpServer())
-                .post('/auth/refresh')
+                .post('/api/v1/auth/refresh')
                 .send({ refreshToken })
 
             expect(firstResponse.statusCode).toBe(201)
@@ -106,7 +106,7 @@ describe('POST auth/refresh', () => {
     describe('Failure cases', () => {
         it('should throw unauthorized when refresh token is malformed', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/refresh')
+                .post('/api/v1/auth/refresh')
                 .send({ refreshToken: 'toto' })
 
             expect(response.statusCode).toBe(401)
@@ -121,7 +121,7 @@ describe('POST auth/refresh', () => {
             )
 
             const response = await request(app.getHttpServer())
-                .post('/auth/refresh')
+                .post('/api/v1/auth/refresh')
                 .send({ refreshToken: accessToken })
 
             expect(response.statusCode).toBe(401)
@@ -138,7 +138,7 @@ describe('POST auth/refresh', () => {
             await refreshTokenRepository.save({ token: expiredRefreshToken, expiresAt: getTokenExpiry(jwtService, expiredRefreshToken), user: { id: user.id } })
 
             const response = await request(app.getHttpServer())
-                .post('/auth/refresh')
+                .post('/api/v1/auth/refresh')
                 .send({ refreshToken: expiredRefreshToken })
 
             expect(response.statusCode).toBe(401)
@@ -151,7 +151,7 @@ describe('POST auth/refresh', () => {
             await refreshTokenRepository.deleteAll()
 
             const response = await request(app.getHttpServer())
-                .post('/auth/refresh')
+                .post('/api/v1/auth/refresh')
                 .send({ refreshToken })
 
             expect(response.statusCode).toBe(401)
@@ -164,7 +164,7 @@ describe('POST auth/refresh', () => {
             await userRepository.delete(user.id!)
 
             const response = await request(app.getHttpServer())
-                .post('/auth/refresh')
+                .post('/api/v1/auth/refresh')
                 .send({ refreshToken })
 
             expect(response.statusCode).toBe(404)
@@ -174,7 +174,7 @@ describe('POST auth/refresh', () => {
 
         it('should throw invalid request when refresh token is not a string', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/refresh')
+                .post('/api/v1/auth/refresh')
                 .send({ refreshToken: 123456 })
 
             expect(response.statusCode).toBe(400)
@@ -183,7 +183,7 @@ describe('POST auth/refresh', () => {
 
         it('should throw invalid request when refresh token is empty', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/refresh')
+                .post('/api/v1/auth/refresh')
                 .send({ refreshToken: '' })
 
             expect(response.statusCode).toBe(400)
@@ -192,7 +192,7 @@ describe('POST auth/refresh', () => {
 
         it('should throw invalid request when forbidden fields passed', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/refresh')
+                .post('/api/v1/auth/refresh')
                 .send({ refreshToken: 'toto', password: 'toto' })
 
             expect(response.statusCode).toBe(400)
@@ -201,7 +201,7 @@ describe('POST auth/refresh', () => {
 
         it('should throw invalid request when empty body', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/refresh')
+                .post('/api/v1/auth/refresh')
                 .send({})
 
             expect(response.statusCode).toBe(400)

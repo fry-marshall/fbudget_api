@@ -53,7 +53,7 @@ describe('POST auth/email', () => {
     describe('Success cases', () => {
         it('should return OTP send successfully with only email as AuthProvider', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/email')
+                .post('/api/v1/auth/email')
                 .send({ email: TEST_EMAIL });
 
             const userCreated = await userRepository.findOne({
@@ -84,7 +84,7 @@ describe('POST auth/email', () => {
             })
 
             const response = await request(app.getHttpServer())
-                .post('/auth/email')
+                .post('/api/v1/auth/email')
                 .send({ email: TEST_EMAIL });
 
             const userCreated = await userRepository.findOne({ where: { email: TEST_EMAIL } })
@@ -106,13 +106,13 @@ describe('POST auth/email', () => {
 
         it('should return OTP send successfully with account already exists with Email as AuthProvider', async () => {
             await request(app.getHttpServer())
-                .post('/auth/email')
+                .post('/api/v1/auth/email')
                 .send({ email: TEST_EMAIL });
 
             const userCreatedFirst = await userRepository.findOne({ where: { email: TEST_EMAIL } })
 
             const response_2 = await request(app.getHttpServer())
-                .post('/auth/email')
+                .post('/api/v1/auth/email')
                 .send({ email: TEST_EMAIL });
 
             const userCreatedAfter = await userRepository.findOne({ where: { email: TEST_EMAIL } })
@@ -137,7 +137,7 @@ describe('POST auth/email', () => {
 
         it('should return OTP send successfully when creating an account with a deleted email', async () => {
             await request(app.getHttpServer())
-                .post('/auth/email')
+                .post('/api/v1/auth/email')
                 .send({ email: TEST_EMAIL });
 
             const userCreatedFirst = await userRepository.findOne({ where: { email: TEST_EMAIL } })
@@ -145,7 +145,7 @@ describe('POST auth/email', () => {
             await userRepository.softDelete({ id: userCreatedFirst?.id })
 
             const response_2 = await request(app.getHttpServer())
-                .post('/auth/email')
+                .post('/api/v1/auth/email')
                 .send({ email: TEST_EMAIL });
 
             const userCreatedAfter = await userRepository.findOne({ where: { email: TEST_EMAIL } })
@@ -173,7 +173,7 @@ describe('POST auth/email', () => {
             mailServiceMocked.sendMail.mockRejectedValueOnce(new Error('SMTP Timeout'))
 
             const response = await request(app.getHttpServer())
-                .post('/auth/email')
+                .post('/api/v1/auth/email')
                 .send({ email: TEST_EMAIL })
 
             expect(response.statusCode).toBe(500)
@@ -189,7 +189,7 @@ describe('POST auth/email', () => {
 
         it('should throw bad exception for invalid email', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/email')
+                .post('/api/v1/auth/email')
                 .send({ email: 'toto' })
 
             expect(response.statusCode).toBe(400)
@@ -200,7 +200,7 @@ describe('POST auth/email', () => {
 
         it('should throw bad exception for empty body', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/email')
+                .post('/api/v1/auth/email')
                 .send({})
 
             expect(response.statusCode).toBe(400)
@@ -211,7 +211,7 @@ describe('POST auth/email', () => {
 
         it('should throw bad exception for non authorized fields', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/email')
+                .post('/api/v1/auth/email')
                 .send({ email: TEST_EMAIL, password: 'toto' })
 
             expect(response.statusCode).toBe(400)

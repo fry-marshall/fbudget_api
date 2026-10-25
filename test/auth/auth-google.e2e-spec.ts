@@ -55,7 +55,7 @@ describe("POST auth/google", () => {
                 payload: { email: userEmail, name: 'test' }
             })
             const response = await request(app.getHttpServer())
-                .post('/auth/google')
+                .post('/api/v1/auth/google')
                 .send({ idToken: 'id-token' });
 
             const user = await userRepository.findOne({
@@ -97,7 +97,7 @@ describe("POST auth/google", () => {
             })
 
             const response = await request(app.getHttpServer())
-                .post('/auth/google')
+                .post('/api/v1/auth/google')
                 .send({ idToken: 'id-token' });
 
             const user = await userRepository.findOne({
@@ -132,7 +132,7 @@ describe("POST auth/google", () => {
             googleServiceMocked.verifyIdToken.mockRejectedValueOnce(new BadRequestException('Invalid id token'))
 
             const response = await request(app.getHttpServer())
-                .post('/auth/google')
+                .post('/api/v1/auth/google')
                 .send({ idToken: 'id-token' });
 
             expect(response.statusCode).toBe(400)

@@ -62,7 +62,7 @@ describe('PUT users/me/settings', () => {
             const { user, accessToken } = await createUserWithAccessToken()
 
             const response = await request(app.getHttpServer())
-                .put('/users/me/settings')
+                .put('/api/v1/users/me/settings')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send(VALID_BODY)
 
@@ -75,7 +75,7 @@ describe('PUT users/me/settings', () => {
             const { user, accessToken } = await createUserWithAccessToken()
 
             const response = await request(app.getHttpServer())
-                .put('/users/me/settings')
+                .put('/api/v1/users/me/settings')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({ ...VALID_BODY, primaryCurrency: currency })
 
@@ -88,7 +88,7 @@ describe('PUT users/me/settings', () => {
             const { user, accessToken } = await createUserWithAccessToken()
 
             const response = await request(app.getHttpServer())
-                .put('/users/me/settings')
+                .put('/api/v1/users/me/settings')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({ ...VALID_BODY, monthlyBudget: 0 })
 
@@ -101,7 +101,7 @@ describe('PUT users/me/settings', () => {
             const { accessToken } = await createUserWithAccessToken()
 
             const response = await request(app.getHttpServer())
-                .put('/users/me/settings')
+                .put('/api/v1/users/me/settings')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send(VALID_BODY)
 
@@ -121,7 +121,7 @@ describe('PUT users/me/settings', () => {
             })
 
             const response = await request(app.getHttpServer())
-                .put('/users/me/settings')
+                .put('/api/v1/users/me/settings')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send(VALID_BODY)
 
@@ -139,7 +139,7 @@ describe('PUT users/me/settings', () => {
             const { user, accessToken } = await createUserWithAccessToken()
 
             const response = await request(app.getHttpServer())
-                .put('/users/me/settings')
+                .put('/api/v1/users/me/settings')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send(body)
 
@@ -163,7 +163,7 @@ describe('PUT users/me/settings', () => {
             const { user, accessToken } = await createUserWithAccessToken()
 
             const response = await request(app.getHttpServer())
-                .put('/users/me/settings')
+                .put('/api/v1/users/me/settings')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({ ...VALID_BODY, [field]: value })
 
@@ -180,7 +180,7 @@ describe('PUT users/me/settings', () => {
             const { user, accessToken } = await createUserWithAccessToken()
 
             const response = await request(app.getHttpServer())
-                .put('/users/me/settings')
+                .put('/api/v1/users/me/settings')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({ ...VALID_BODY, [field]: value })
 
@@ -191,7 +191,7 @@ describe('PUT users/me/settings', () => {
 
         it('should throw unauthorized when no token is provided', async () => {
             const response = await request(app.getHttpServer())
-                .put('/users/me/settings')
+                .put('/api/v1/users/me/settings')
                 .send(VALID_BODY)
 
             expect(response.statusCode).toBe(401)
@@ -199,7 +199,7 @@ describe('PUT users/me/settings', () => {
 
         it('should throw unauthorized when token is malformed', async () => {
             const response = await request(app.getHttpServer())
-                .put('/users/me/settings')
+                .put('/api/v1/users/me/settings')
                 .set('Authorization', 'Bearer toto')
                 .send(VALID_BODY)
 
@@ -211,7 +211,7 @@ describe('PUT users/me/settings', () => {
             const expiredAccessToken = signAccessToken(jwtService, configService, user, -10)
 
             const response = await request(app.getHttpServer())
-                .put('/users/me/settings')
+                .put('/api/v1/users/me/settings')
                 .set('Authorization', `Bearer ${expiredAccessToken}`)
                 .send(VALID_BODY)
 
@@ -223,7 +223,7 @@ describe('PUT users/me/settings', () => {
             const { user, refreshToken } = await createUserWithRefreshToken(userRepository, refreshTokenRepository, jwtService, configService)
 
             const response = await request(app.getHttpServer())
-                .put('/users/me/settings')
+                .put('/api/v1/users/me/settings')
                 .set('Authorization', `Bearer ${refreshToken}`)
                 .send(VALID_BODY)
 
@@ -236,7 +236,7 @@ describe('PUT users/me/settings', () => {
             await userRepository.delete(user.id!)
 
             const response = await request(app.getHttpServer())
-                .put('/users/me/settings')
+                .put('/api/v1/users/me/settings')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send(VALID_BODY)
 
@@ -249,7 +249,7 @@ describe('PUT users/me/settings', () => {
             await userRepository.softDelete(user.id!)
 
             const response = await request(app.getHttpServer())
-                .put('/users/me/settings')
+                .put('/api/v1/users/me/settings')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send(VALID_BODY)
 

@@ -66,7 +66,7 @@ describe('POST auth/verify-otp', () => {
             });
 
             const response = await request(app.getHttpServer())
-                .post('/auth/verify-otp')
+                .post('/api/v1/auth/verify-otp')
                 .send({ email: TEST_EMAIL, code: userCreated.otpCode })
 
             const userVerified = await userRepository.findOne({ where: { email: TEST_EMAIL } })
@@ -87,7 +87,7 @@ describe('POST auth/verify-otp', () => {
     describe('Failure cases', () => {
         it('should throw not found when user doesn\'t exist', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/verify-otp')
+                .post('/api/v1/auth/verify-otp')
                 .send({ email: TEST_EMAIL, code: '123456' })
 
             expect(response.statusCode).toBe(404)
@@ -106,7 +106,7 @@ describe('POST auth/verify-otp', () => {
             });
 
             const response = await request(app.getHttpServer())
-                .post('/auth/verify-otp')
+                .post('/api/v1/auth/verify-otp')
                 .send({ email: TEST_EMAIL, code: '654321' })
 
             const userNotVerified = await userRepository.findOne({ where: { email: TEST_EMAIL } })
@@ -128,7 +128,7 @@ describe('POST auth/verify-otp', () => {
             });
 
             const response = await request(app.getHttpServer())
-                .post('/auth/verify-otp')
+                .post('/api/v1/auth/verify-otp')
                 .send({ email: TEST_EMAIL, code: userCreated.otpCode })
 
             const userNotVerified = await userRepository.findOne({ where: { email: TEST_EMAIL } })
@@ -150,11 +150,11 @@ describe('POST auth/verify-otp', () => {
             });
 
             const firstResponse = await request(app.getHttpServer())
-                .post('/auth/verify-otp')
+                .post('/api/v1/auth/verify-otp')
                 .send({ email: TEST_EMAIL, code: userCreated.otpCode })
 
             const secondResponse = await request(app.getHttpServer())
-                .post('/auth/verify-otp')
+                .post('/api/v1/auth/verify-otp')
                 .send({ email: TEST_EMAIL, code: userCreated.otpCode })
 
             expect(firstResponse.statusCode).toBe(201)
@@ -172,7 +172,7 @@ describe('POST auth/verify-otp', () => {
             });
 
             const response = await request(app.getHttpServer())
-                .post('/auth/verify-otp')
+                .post('/api/v1/auth/verify-otp')
                 .send({ email: TEST_EMAIL, code: '123456' })
 
             expect(response.statusCode).toBe(404)
@@ -182,7 +182,7 @@ describe('POST auth/verify-otp', () => {
 
         it('should throw invalid request when email is malformed', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/verify-otp')
+                .post('/api/v1/auth/verify-otp')
                 .send({ email: 'toto', code: '123456' })
 
             expect(response.statusCode).toBe(400)
@@ -191,7 +191,7 @@ describe('POST auth/verify-otp', () => {
 
         it('should throw invalid request when code is too short', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/verify-otp')
+                .post('/api/v1/auth/verify-otp')
                 .send({ email: TEST_EMAIL, code: '12345' })
 
             expect(response.statusCode).toBe(400)
@@ -200,7 +200,7 @@ describe('POST auth/verify-otp', () => {
 
         it('should throw invalid request when code is too long', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/verify-otp')
+                .post('/api/v1/auth/verify-otp')
                 .send({ email: TEST_EMAIL, code: '1234567' })
 
             expect(response.statusCode).toBe(400)
@@ -209,7 +209,7 @@ describe('POST auth/verify-otp', () => {
 
         it('should throw invalid request when code is not numeric', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/verify-otp')
+                .post('/api/v1/auth/verify-otp')
                 .send({ email: TEST_EMAIL, code: '12ab56' })
 
             expect(response.statusCode).toBe(400)
@@ -218,7 +218,7 @@ describe('POST auth/verify-otp', () => {
 
         it('should throw invalid request when code is not a string', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/verify-otp')
+                .post('/api/v1/auth/verify-otp')
                 .send({ email: TEST_EMAIL, code: 123456 })
 
             expect(response.statusCode).toBe(400)
@@ -227,7 +227,7 @@ describe('POST auth/verify-otp', () => {
 
         it('should throw invalid request when forbidden fields passed', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/verify-otp')
+                .post('/api/v1/auth/verify-otp')
                 .send({ email: TEST_EMAIL, code: '123456', password: 'toto' })
 
             expect(response.statusCode).toBe(400)
@@ -236,7 +236,7 @@ describe('POST auth/verify-otp', () => {
 
         it('should throw invalid request when empty body', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/verify-otp')
+                .post('/api/v1/auth/verify-otp')
                 .send({})
 
             expect(response.statusCode).toBe(400)

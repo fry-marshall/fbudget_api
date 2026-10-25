@@ -62,7 +62,7 @@ describe('DELETE users/me', () => {
             const {user, accessToken} = await createUserWithAccessToken(authProvider)
 
             const response = await request(app.getHttpServer())
-                .delete('/users/me')
+                .delete('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
             
 
@@ -82,14 +82,14 @@ describe('DELETE users/me', () => {
     describe('Failure cases', () => {
         it('should throw unauthorized when no token is provided', async () => {
             const response = await request(app.getHttpServer())
-                .delete('/users/me')
+                .delete('/api/v1/users/me')
 
             expect(response.statusCode).toBe(401)
         })
 
         it('should throw unauthorized when token is malformed', async () => {
             const response = await request(app.getHttpServer())
-                .delete('/users/me')
+                .delete('/api/v1/users/me')
                 .set('Authorization', 'Bearer toto')
 
             expect(response.statusCode).toBe(401)
@@ -100,7 +100,7 @@ describe('DELETE users/me', () => {
             const expiredAccessToken = signAccessToken(jwtService, configService, user, -10)
 
             const response = await request(app.getHttpServer())
-                .delete('/users/me')
+                .delete('/api/v1/users/me')
                 .set('Authorization', `Bearer ${expiredAccessToken}`)
 
             expect(response.statusCode).toBe(401)
@@ -111,7 +111,7 @@ describe('DELETE users/me', () => {
             const { user, refreshToken } = await createUserWithRefreshToken(userRepository, refreshTokenRepository, jwtService, configService)
 
             const response = await request(app.getHttpServer())
-                .delete('/users/me')
+                .delete('/api/v1/users/me')
                 .set('Authorization', `Bearer ${refreshToken}`)
 
             expect(response.statusCode).toBe(401)
@@ -124,7 +124,7 @@ describe('DELETE users/me', () => {
             await userRepository.delete(user.id!)
 
             const response = await request(app.getHttpServer())
-                .delete('/users/me')
+                .delete('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 
             expect(response.statusCode).toBe(404)
@@ -135,12 +135,12 @@ describe('DELETE users/me', () => {
             const { user, accessToken } = await createUserWithAccessToken()
 
             const firstResponse = await request(app.getHttpServer())
-                .delete('/users/me')
+                .delete('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
             const deletedAt = (await userRepository.findOne({ where: { id: user.id }, withDeleted: true }))?.deletedAt
 
             const secondResponse = await request(app.getHttpServer())
-                .delete('/users/me')
+                .delete('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 
             expect(firstResponse.statusCode).toBe(200)
@@ -154,11 +154,11 @@ describe('DELETE users/me', () => {
             const accessToken = signAccessToken(jwtService, configService, user)
 
             await request(app.getHttpServer())
-                .delete('/users/me')
+                .delete('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 
             const response = await request(app.getHttpServer())
-                .post('/auth/refresh')
+                .post('/api/v1/auth/refresh')
                 .send({ refreshToken })
 
             expect(response.statusCode).toBe(404)
@@ -169,11 +169,11 @@ describe('DELETE users/me', () => {
             const { accessToken } = await createUserWithAccessToken()
 
             await request(app.getHttpServer())
-                .delete('/users/me')
+                .delete('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 
             const response = await request(app.getHttpServer())
-                .get('/users/me')
+                .get('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 
             expect(response.statusCode).toBe(404)

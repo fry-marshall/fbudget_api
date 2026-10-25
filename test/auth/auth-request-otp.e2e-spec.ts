@@ -60,7 +60,7 @@ describe('POST auth/request-otp', () => {
             });
 
             const response = await request(app.getHttpServer())
-                .post('/auth/request-otp')
+                .post('/api/v1/auth/request-otp')
                 .send({ email: TEST_EMAIL })
 
             const userWithNewOtp = await userRepository.findOne({ where: { email: TEST_EMAIL } })
@@ -85,7 +85,7 @@ describe('POST auth/request-otp', () => {
         it('should return message: OTP send successfully when user doesn\'t exist', async () => {
 
             const response = await request(app.getHttpServer())
-                .post('/auth/request-otp')
+                .post('/api/v1/auth/request-otp')
                 .send({ email: TEST_EMAIL })
 
             expect(response.statusCode).toBe(201)
@@ -104,7 +104,7 @@ describe('POST auth/request-otp', () => {
             });
 
             const response = await request(app.getHttpServer())
-                .post('/auth/request-otp')
+                .post('/api/v1/auth/request-otp')
                 .send({ email: TEST_EMAIL })
 
             expect(response.statusCode).toBe(201)
@@ -127,7 +127,7 @@ describe('POST auth/request-otp', () => {
             });
 
             const response = await request(app.getHttpServer())
-                .post('/auth/request-otp')
+                .post('/api/v1/auth/request-otp')
                 .send({ email: TEST_EMAIL })
 
             const userWithNewOtp = await userRepository.findOne({ where: { email: TEST_EMAIL } })
@@ -141,7 +141,7 @@ describe('POST auth/request-otp', () => {
 
         it('should throw invalid request when email is malformed', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/request-otp')
+                .post('/api/v1/auth/request-otp')
                 .send({ email: 'toto' })
 
             expect(response.statusCode).toBe(400)
@@ -150,7 +150,7 @@ describe('POST auth/request-otp', () => {
 
         it('should throw invalid request when forbidden fields passed', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/request-otp')
+                .post('/api/v1/auth/request-otp')
                 .send({ email: TEST_EMAIL, password: 'toto' })
 
             expect(response.statusCode).toBe(400)
@@ -159,7 +159,7 @@ describe('POST auth/request-otp', () => {
 
         it('should throw invalid request when empty body', async () => {
             const response = await request(app.getHttpServer())
-                .post('/auth/request-otp')
+                .post('/api/v1/auth/request-otp')
                 .send({})
 
             expect(response.statusCode).toBe(400)

@@ -1,6 +1,4 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { envValidationSchema } from './config/env.validation';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -48,7 +46,6 @@ import { UserModule } from './modules/users/user.module';
     }),
     UserModule
   ],
-  controllers: [AppController],
-  providers: [AppService, JwtStrategy],
+  providers: [JwtStrategy],
 })
 export class AppModule { }

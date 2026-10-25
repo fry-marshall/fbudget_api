@@ -59,7 +59,7 @@ describe('GET users/me', () => {
             const { user, accessToken } = await createUserWithAccessToken(authProvider)
 
             const response = await request(app.getHttpServer())
-                .get('/users/me')
+                .get('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 
             expect(response.statusCode).toBe(200)
@@ -85,7 +85,7 @@ describe('GET users/me', () => {
             await userRepository.update(user.id!, { otpCode: '123456', otpExpiresAt: new Date() })
 
             const response = await request(app.getHttpServer())
-                .get('/users/me')
+                .get('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 
             expect(response.statusCode).toBe(200)
@@ -101,7 +101,7 @@ describe('GET users/me', () => {
             await settingsRepository.update(user.settings!.id!, { primaryCurrency: Currency.USD, monthlyBudget: 1500 })
 
             const response = await request(app.getHttpServer())
-                .get('/users/me')
+                .get('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 
             expect(response.statusCode).toBe(200)
@@ -116,14 +116,14 @@ describe('GET users/me', () => {
     describe('Failure cases', () => {
         it('should throw unauthorized when no token is provided', async () => {
             const response = await request(app.getHttpServer())
-                .get('/users/me')
+                .get('/api/v1/users/me')
 
             expect(response.statusCode).toBe(401)
         })
 
         it('should throw unauthorized when token is malformed', async () => {
             const response = await request(app.getHttpServer())
-                .get('/users/me')
+                .get('/api/v1/users/me')
                 .set('Authorization', 'Bearer toto')
 
             expect(response.statusCode).toBe(401)
@@ -134,7 +134,7 @@ describe('GET users/me', () => {
             const expiredAccessToken = signAccessToken(jwtService, configService, user, -10)
 
             const response = await request(app.getHttpServer())
-                .get('/users/me')
+                .get('/api/v1/users/me')
                 .set('Authorization', `Bearer ${expiredAccessToken}`)
 
             expect(response.statusCode).toBe(401)
@@ -144,7 +144,7 @@ describe('GET users/me', () => {
             const { refreshToken } = await createUserWithRefreshToken(userRepository, refreshTokenRepository, jwtService, configService)
 
             const response = await request(app.getHttpServer())
-                .get('/users/me')
+                .get('/api/v1/users/me')
                 .set('Authorization', `Bearer ${refreshToken}`)
 
             expect(response.statusCode).toBe(401)
@@ -155,7 +155,7 @@ describe('GET users/me', () => {
             await userRepository.delete(user.id!)
 
             const response = await request(app.getHttpServer())
-                .get('/users/me')
+                .get('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 
             expect(response.statusCode).toBe(404)
@@ -167,7 +167,7 @@ describe('GET users/me', () => {
             await userRepository.softDelete(user.id!)
 
             const response = await request(app.getHttpServer())
-                .get('/users/me')
+                .get('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 
             expect(response.statusCode).toBe(404)

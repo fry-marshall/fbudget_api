@@ -65,7 +65,7 @@ describe('PUT users/me', () => {
             const expected = { displayName: 'marshall', city: 'Lyon', country: 'Italie', [field]: value }
 
             const response = await request(app.getHttpServer())
-                .put('/users/me')
+                .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({ [field]: value })
 
@@ -78,7 +78,7 @@ describe('PUT users/me', () => {
             const { user, accessToken } = await createUserWithAccessToken()
 
             const response = await request(app.getHttpServer())
-                .put('/users/me')
+                .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({ displayName: 'toto', city: 'Paris', country: 'France' })
 
@@ -105,7 +105,7 @@ describe('PUT users/me', () => {
             const { accessToken } = await createUserWithAccessToken()
 
             const response = await request(app.getHttpServer())
-                .put('/users/me')
+                .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({})
 
@@ -122,7 +122,7 @@ describe('PUT users/me', () => {
             await userRepository.update(user.id!, { otpCode: '123456', otpExpiresAt: new Date() })
 
             const response = await request(app.getHttpServer())
-                .put('/users/me')
+                .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({ displayName: 'toto' })
 
@@ -150,7 +150,7 @@ describe('PUT users/me', () => {
             const { user, accessToken } = await createUserWithAccessToken()
 
             const response = await request(app.getHttpServer())
-                .put('/users/me')
+                .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({ [field]: value })
 
@@ -168,7 +168,7 @@ describe('PUT users/me', () => {
             const { user, accessToken } = await createUserWithAccessToken()
 
             const response = await request(app.getHttpServer())
-                .put('/users/me')
+                .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({ displayName: 'toto', [field]: value })
 
@@ -185,7 +185,7 @@ describe('PUT users/me', () => {
 
         it('should throw unauthorized when no token is provided', async () => {
             const response = await request(app.getHttpServer())
-                .put('/users/me')
+                .put('/api/v1/users/me')
                 .send({ displayName: 'toto' })
 
             expect(response.statusCode).toBe(401)
@@ -193,7 +193,7 @@ describe('PUT users/me', () => {
 
         it('should throw unauthorized when token is malformed', async () => {
             const response = await request(app.getHttpServer())
-                .put('/users/me')
+                .put('/api/v1/users/me')
                 .set('Authorization', 'Bearer toto')
                 .send({ displayName: 'toto' })
 
@@ -205,7 +205,7 @@ describe('PUT users/me', () => {
             const expiredAccessToken = signAccessToken(jwtService, configService, user, -10)
 
             const response = await request(app.getHttpServer())
-                .put('/users/me')
+                .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${expiredAccessToken}`)
                 .send({ displayName: 'toto' })
 
@@ -217,7 +217,7 @@ describe('PUT users/me', () => {
             const { user, refreshToken } = await createUserWithRefreshToken(userRepository, refreshTokenRepository, jwtService, configService)
 
             const response = await request(app.getHttpServer())
-                .put('/users/me')
+                .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${refreshToken}`)
                 .send({ displayName: 'toto' })
 
@@ -230,7 +230,7 @@ describe('PUT users/me', () => {
             await userRepository.delete(user.id!)
 
             const response = await request(app.getHttpServer())
-                .put('/users/me')
+                .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({ displayName: 'toto' })
 
@@ -243,7 +243,7 @@ describe('PUT users/me', () => {
             await userRepository.softDelete(user.id!)
 
             const response = await request(app.getHttpServer())
-                .put('/users/me')
+                .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({ displayName: 'toto' })
 
