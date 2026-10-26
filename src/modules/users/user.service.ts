@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { Repository } from "typeorm";
 import { User } from "./user.entity";
 import { InjectRepository } from "@nestjs/typeorm";
-import { ERRORS_MESSAGES } from "src/common/constants";
+import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { UserResponseDto } from "./dto/user-response.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { UpdateSettingsDto } from "../settings/dto/update-settings.dto";
@@ -86,7 +86,7 @@ export class UserService {
         await this.refreshTokenService.removeUserRefreshTokens(user.id!)
         await this.userRepository.softDelete(user.id!)
 
-        return { message: ERRORS_MESSAGES.USER.USER_DELETED }
+        return { message: SUCCESS_MESSAGES.USER.USER_DELETED }
     }
 
     async updateSettings(userId: string, updateSettingsDto: UpdateSettingsDto): Promise<SettingsResponseDto> {

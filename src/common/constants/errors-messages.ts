@@ -10,9 +10,6 @@ export const ERRORS_MESSAGES = {
         TOKEN_NOT_FOUND: 'Refresh token not found',
         INVALID_TOKEN: 'Refresh token is not valid',
     },
-    USER: {
-        USER_DELETED: 'User deleted successfully'
-    },
     SETTINGS: {
         SETTINGS_NOT_FOUND: 'Settings not found'
     }

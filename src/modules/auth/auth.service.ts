@@ -12,7 +12,7 @@ import { generateOtp } from "src/common/helpers/helpers";
 import { MailService } from "src/common/services/mail.service";
 import { AuthProvider } from "../users/types";
 import { RefreshTokenService } from "../refresh-tokens/refresh-token.service";
-import { ERRORS_MESSAGES } from "src/common/constants";
+import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 
 @Injectable()
 export class AuthService {
@@ -71,7 +71,7 @@ export class AuthService {
         await this.sendOtp(user);
 
         return {
-            message: "OTP send successfully"
+            message: SUCCESS_MESSAGES.AUTH.OTP_SENT
         };
     }
 
@@ -81,14 +81,14 @@ export class AuthService {
         if (!user || !user.authProviders?.includes(AuthProvider.EMAIL)) {
             // To not let any attacker have the information this account exists or not
             return {
-                message: "OTP send successfully"
+                message: SUCCESS_MESSAGES.AUTH.OTP_SENT
             };
         }
 
         await this.sendOtp(user);
 
         return {
-            message: "OTP send successfully"
+            message: SUCCESS_MESSAGES.AUTH.OTP_SENT
         };
     }
 
@@ -194,7 +194,7 @@ export class AuthService {
             }
 
             await this.refreshTokenService.removeRefreshToken(refreshTokenParam)
-            return { message: 'User logout successfully' }
+            return { message: SUCCESS_MESSAGES.AUTH.LOGOUT }
         }
         catch (err) {
             if (err instanceof UnauthorizedException || err instanceof NotFoundException || err instanceof BadRequestException) {

@@ -5,7 +5,7 @@ import { User } from "./user.entity";
 import { AuthProvider, SubscriptionPlan, UserRole } from "./types";
 import { Currency } from "../settings/types";
 import { NotFoundException } from "@nestjs/common";
-import { ERRORS_MESSAGES } from "src/common/constants";
+import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { SettingsService } from "../settings/settings.service";
 import { RefreshTokenService } from "../refresh-tokens/refresh-token.service";
 
@@ -195,7 +195,7 @@ describe('UserService', () => {
                 refreshTokenServiceMocked.removeUserRefreshTokens = jest.fn().mockResolvedValue(undefined)
 
                 const response = await userService.deleteMe(userMocked.id!)
-                expect(response.message).toBe(ERRORS_MESSAGES.USER.USER_DELETED)
+                expect(response.message).toBe(SUCCESS_MESSAGES.USER.USER_DELETED)
                 expect(refreshTokenServiceMocked.removeUserRefreshTokens).toHaveBeenCalledWith(userMocked.id)
                 expect(userRepositoryMocked.softDelete).toHaveBeenCalledWith(userMocked.id)
             })

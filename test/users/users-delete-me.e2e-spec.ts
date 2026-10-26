@@ -12,7 +12,7 @@ import { setupApp } from "src/setup-app";
 import { createUserWithRefreshToken, signAccessToken } from "../helpers";
 import { Repository } from "typeorm";
 import request from 'supertest'
-import { ERRORS_MESSAGES } from "src/common/constants";
+import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 
 
 describe('DELETE users/me', () => {
@@ -67,7 +67,7 @@ describe('DELETE users/me', () => {
             
 
             expect(response.statusCode).toEqual(200)
-            expect(response.body.data.message).toEqual(ERRORS_MESSAGES.USER.USER_DELETED)
+            expect(response.body.data.message).toEqual(SUCCESS_MESSAGES.USER.USER_DELETED)
 
             const activeUser = await userRepository.findOne({where: {id: user.id}})
             const deletedUser = await userRepository.findOne({where: {id: user.id}, withDeleted: true},)
