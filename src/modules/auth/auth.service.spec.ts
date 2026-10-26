@@ -214,48 +214,17 @@ describe('AuthService', () => {
 
                 await expect(authService.emailAuthentication('toto@gmail.com')).rejects.toThrow(new BadRequestException('An error occured'))
             })
-        })
-    })
 
-    describe('requestOtp', () => {
-        describe('success cases', () => {
-            it('should return otp by email when user exists', async () => {
+            it('should throw exception when email service fails', async () => {
                 userRepositoryMocked.findOne = jest.fn().mockResolvedValue({
                     id: 'toto',
                     email: 'test@gmail.com',
                     authProviders: [AuthProvider.EMAIL],
                 })
 
-                const response = await authService.emailAuthentication('toto@gmail.com')
-                expect(response.message).toBe('OTP send successfully')
-            });
-        })
-
-        describe('failure cases', () => {
-            it('should throw exception when user doesn\'t exist', async () => {
-                userRepositoryMocked.findOne = jest.fn().mockResolvedValue(null)
-                
-                const response = await authService.requestOtp('toto@gmail.com');
-                expect(response).toStrictEqual({
-                    message: 'OTP send successfully'
-                })
-            })
-
-            it('should throw exception when email service fails', async () => {
-                userRepositoryMocked.findOne = jest.fn().mockResolvedValue({
-                    id: 'toto',
-                    email: 'test@gmail.com'
-                })
-
                 mailServiceMocked.sendMail = jest.fn().mockRejectedValue(new Error('Email cannot be sent'))
 
-                await expect(authService.requestOtp('toto@gmail.com')).rejects.toThrow(new Error('Email cannot be sent'))
-            })
-
-            it('should throw exception repository method fails', async () => {
-                userRepositoryMocked.findOne = jest.fn().mockRejectedValue(new BadRequestException('An error occured'))
-
-                await expect(authService.requestOtp('toto@gmail.com')).rejects.toThrow(new BadRequestException('An error occured'))
+                await expect(authService.emailAuthentication('toto@gmail.com')).rejects.toThrow(new Error('Email cannot be sent'))
             })
         })
     })

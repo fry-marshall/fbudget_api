@@ -75,23 +75,6 @@ export class AuthService {
         };
     }
 
-    async requestOtp(email: string): Promise<{ message: string }> {
-        let user = await this.userRepository.findOne({ where: { email } });
-
-        if (!user || !user.authProviders?.includes(AuthProvider.EMAIL)) {
-            // To not let any attacker have the information this account exists or not
-            return {
-                message: SUCCESS_MESSAGES.AUTH.OTP_SENT
-            };
-        }
-
-        await this.sendOtp(user);
-
-        return {
-            message: SUCCESS_MESSAGES.AUTH.OTP_SENT
-        };
-    }
-
     /**
      * Sign a new access and refresh token pair, the jti makes each refresh token unique
      */

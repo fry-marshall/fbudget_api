@@ -4,7 +4,6 @@ import { AuthGoogleDto } from "./dto/auth-google.dto";
 import { AuthService } from "./auth.service";
 import { AuthResponseDto } from "./dto/auth-response.dto";
 import { AuthEmailDto } from "./dto/auth-email.dto";
-import { RequestOtpDto } from "./dto/request-otp.dto";
 import { VerifyOtpDto } from "./dto/verify-otp.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { ApiSuccessResponse, ErrorResponse } from "src/common/swagger";
@@ -28,19 +27,11 @@ export class AuthController {
     }
 
     @Post('email')
-    @ApiOperation({ summary: 'Create the account if needed and send an OTP by email' })
+    @ApiOperation({ summary: 'Create the account if needed and send an OTP by email, call again to resend a new code' })
     @ApiSuccessResponse(MessageResponseDto, 201)
     @ApiBadRequestResponse({ description: ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST, type: ErrorResponse })
     emailAuthentication(@Body() authEmailDto: AuthEmailDto): Promise<MessageResponseDto> {
         return this.authService.emailAuthentication(authEmailDto.email!);
-    }
-
-    @Post('request-otp')
-    @ApiOperation({ summary: 'Send a new OTP by email, same response whether the account exists or not' })
-    @ApiSuccessResponse(MessageResponseDto, 201)
-    @ApiBadRequestResponse({ description: ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST, type: ErrorResponse })
-    requestOtp(@Body() requestOtpDto: RequestOtpDto): Promise<MessageResponseDto> {
-        return this.authService.requestOtp(requestOtpDto.email!);
     }
 
     @Post('verify-otp')

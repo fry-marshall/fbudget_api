@@ -4,7 +4,8 @@ import { Repository } from "typeorm";
 import request from 'supertest';
 import { AuthProvider } from "src/modules/users/types";
 import { resetDatabase } from "../utils/database";
-import { expectValidOtp, TEST_EMAIL } from "../utils/factories";
+import { generateOtp } from "src/common/helpers/helpers";
+import { buildUser, expectValidOtp, TEST_EMAIL } from "../utils/factories";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('POST auth/email', () => {
@@ -117,6 +118,32 @@ describe('POST auth/email', () => {
                 receiver: TEST_EMAIL,
                 template: 'otp-verification',
                 context: expect.objectContaining({ code: userCreatedAfter?.otpCode })
+            }))
+        })
+
+        it('should replace the previous OTP and send it with the user display name when resending a code', async () => {
+            const userCreated = await userRepository.save(buildUser({
+                otpCode: generateOtp(),
+                otpExpiresAt: new Date(Date.now() + 100000)
+            }))
+
+            const response = await request(ctx.app.getHttpServer())
+                .post('/api/v1/auth/email')
+                .send({ email: TEST_EMAIL })
+
+            const userWithNewOtp = await userRepository.findOne({ where: { email: TEST_EMAIL } })
+
+            expect(response.statusCode).toBe(201)
+            expect(response.body.data.message).toBe('OTP send successfully')
+            expect(userWithNewOtp?.otpCode).not.toEqual(userCreated.otpCode)
+            expectValidOtp(userWithNewOtp)
+            expect(mailServiceMocked.sendMail).toHaveBeenCalledTimes(1)
+            expect(mailServiceMocked.sendMail).toHaveBeenCalledWith(expect.objectContaining({
+                receiver: TEST_EMAIL,
+                context: {
+                    code: userWithNewOtp?.otpCode,
+                    name: 'marshall'
+                }
             }))
         })
 
