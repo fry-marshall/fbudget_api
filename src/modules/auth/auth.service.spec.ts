@@ -10,8 +10,6 @@ import { MailService } from "src/common/services/mail.service"
 import { RefreshTokenService } from "../refresh-tokens/refresh-token.service"
 import { ERRORS_MESSAGES } from "src/common/constants"
 import { AuthProvider } from "../users/types"
-import { SettingsService } from "../settings/settings.service"
-import { Currency } from "../settings/types"
 
 
 const googleServiceMocked = {
@@ -40,10 +38,6 @@ let jwtServiceMocked = {
 
 let mailServiceMocked = {
     sendMail: jest.fn()
-}
-
-let settingsServiceMocked = {
-    createSettings: jest.fn()
 }
 
 let refreshTokenServiceMocked = {
@@ -85,10 +79,6 @@ describe('AuthService', () => {
                     provide: RefreshTokenService,
                     useValue: refreshTokenServiceMocked
 
-                },
-                {
-                    provide: SettingsService,
-                    useValue: settingsServiceMocked
                 }
             ]
         }).compile()
@@ -121,10 +111,11 @@ describe('AuthService', () => {
                     email: 'test@gmail.com',
                     authProviders: [AuthProvider.GOOGLE],
                 })
+                userRepositoryMocked.save = jest.fn()
 
                 const tokens = await authService.googleAuthentication('idToken')
 
-                expect(settingsServiceMocked.createSettings).toHaveBeenCalledTimes(0)
+                expect(userRepositoryMocked.save).not.toHaveBeenCalled()
 
                 expect(tokens).toStrictEqual({
                     accessToken: 'access-token',
@@ -151,15 +142,12 @@ describe('AuthService', () => {
                     email: 'test@gmail.com'
                 })
 
-                settingsServiceMocked.createSettings = jest.fn().mockResolvedValue({
-                    id: 'settings-id',
-                    primaryCurrency: Currency.EUR,
-                    monthlyBudget: null,
-                })
-
                 const tokens = await authService.googleAuthentication('idToken')
 
-                expect(settingsServiceMocked.createSettings).toHaveBeenCalledTimes(1)
+                expect(userRepositoryMocked.save).toHaveBeenCalledWith(expect.objectContaining({
+                    authProviders: [AuthProvider.GOOGLE],
+                    settings: {}
+                }))
                 expect(tokens).toStrictEqual({
                     accessToken: 'access-token',
                     refreshToken: 'refresh-token',
