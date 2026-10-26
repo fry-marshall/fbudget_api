@@ -28,7 +28,7 @@ export class User extends AbstractEntity {
     @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
     role?: UserRole;
 
-    @Column({ nullable: true })
+    @Column({ nullable: true, select: false })
     otpCode?: string;
 
     @Column({ nullable: true, type: 'timestamptz' })

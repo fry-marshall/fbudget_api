@@ -1,4 +1,5 @@
 import { Test } from "@nestjs/testing"
+import * as bcrypt from "bcrypt"
 import { AuthService } from "./auth.service"
 import { JwtService } from "@nestjs/jwt"
 import { GoogleService } from "src/common/services/google.service"
@@ -12,6 +13,9 @@ import { ERRORS_MESSAGES } from "src/common/constants"
 import { AuthProvider } from "../users/types"
 
 
+const OTP_CODE = '123456'
+const OTP_HASH = bcrypt.hashSync(OTP_CODE, 4)
+
 const googleServiceMocked = {
     verifyIdToken: jest.fn()
 }
@@ -19,8 +23,8 @@ const userRepositoryMocked = {
     findOne: jest.fn().mockResolvedValue({
         id: 'toto',
         email: 'test@gmail.com',
-        code: '123456',
-        otpExpiredAt: new Date(Date.now() + 900000)
+        otpCode: OTP_HASH,
+        otpExpiresAt: new Date(Date.now() + 900000)
     }),
     update: jest.fn(),
     save: jest.fn(),
@@ -194,6 +198,25 @@ describe('AuthService', () => {
                 const response = await authService.emailAuthentication('toto@gmail.com')
                 expect(response.message).toBe('OTP send successfully')
             })
+
+            it('should save the bcrypt hash of the OTP and send the plain code by email', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue({
+                    id: 'toto',
+                    email: 'test@gmail.com',
+                    authProviders: [AuthProvider.EMAIL],
+                })
+                userRepositoryMocked.update = jest.fn()
+                mailServiceMocked.sendMail = jest.fn().mockResolvedValue(null)
+
+                await authService.emailAuthentication('test@gmail.com')
+
+                const savedHash = userRepositoryMocked.update.mock.calls[0][1].otpCode
+                const sentCode = mailServiceMocked.sendMail.mock.calls[0][0].context.code
+
+                expect(sentCode).toMatch(/^\d{6}$/)
+                expect(savedHash).not.toEqual(sentCode)
+                expect(await bcrypt.compare(sentCode, savedHash)).toBe(true)
+            })
         })
 
         describe('failure cases', () => {
@@ -218,43 +241,62 @@ describe('AuthService', () => {
     })
 
     describe('verifyOtp', () => {
-        describe('success cases', () => {
-            it('should return credentials when user exists, code is valid & expired time not reached yet', async () => {
-                userRepositoryMocked.findOne = jest.fn().mockResolvedValue({
-                    id: 'toto',
-                    email: 'test@gmail.com',
-                    code: '123456',
-                    otpExpiredAt: new Date(Date.now() + 900000)
-                })
+        const pendingUser = (overrides = {}) => ({
+            id: 'toto',
+            email: 'test@gmail.com',
+            otpCode: OTP_HASH,
+            otpExpiresAt: new Date(Date.now() + 900000),
+            ...overrides
+        })
 
-                const response = await authService.verifyOtp('test@gmail.com', '123456')
+        describe('success cases', () => {
+            it('should return credentials and clear the OTP when code is valid & expired time not reached yet', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue(pendingUser())
+                userRepositoryMocked.update = jest.fn()
+
+                const response = await authService.verifyOtp('test@gmail.com', OTP_CODE)
+
                 expect(response.accessToken).toBe('access-token')
                 expect(response.refreshToken).toBe('refresh-token')
+                expect(userRepositoryMocked.update).toHaveBeenCalledWith('toto', { otpCode: null, otpExpiresAt: null })
             });
         })
 
         describe('failure cases', () => {
-            it('should throw not found exception when user doesn\'t exist or code is incorrect', async () => {
+            it('should throw unauthorized invalid OTP when user doesn\'t exist', async () => {
                 userRepositoryMocked.findOne = jest.fn().mockResolvedValue(null)
 
-                await expect(authService.verifyOtp('toto@gmail.com', '123456')).rejects.toThrow(new NotFoundException(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND))
+                await expect(authService.verifyOtp('toto@gmail.com', OTP_CODE)).rejects.toThrow(new UnauthorizedException(ERRORS_MESSAGES.AUTH.INVALID_OTP))
             })
 
-            it('should throw unauthorized exception when otp time is expired', async () => {
-                userRepositoryMocked.findOne = jest.fn().mockResolvedValue({
-                    id: 'toto',
-                    email: 'test@gmail.com',
-                    otpCode: '123456',
-                    otpExpiresAt: new Date(Date.now() - 10000)
-                })
+            it('should throw unauthorized invalid OTP when user has no pending code', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue(pendingUser({ otpCode: null, otpExpiresAt: null }))
 
-                await expect(authService.verifyOtp('toto@gmail.com', '123456')).rejects.toThrow(new UnauthorizedException(ERRORS_MESSAGES.AUTH.EXPIRED_OTP))
+                await expect(authService.verifyOtp('test@gmail.com', OTP_CODE)).rejects.toThrow(new UnauthorizedException(ERRORS_MESSAGES.AUTH.INVALID_OTP))
+            })
+
+            it('should throw unauthorized invalid OTP when code is incorrect', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue(pendingUser())
+
+                await expect(authService.verifyOtp('test@gmail.com', '654321')).rejects.toThrow(new UnauthorizedException(ERRORS_MESSAGES.AUTH.INVALID_OTP))
+            })
+
+            it('should throw unauthorized expired OTP when code is valid but expired', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue(pendingUser({ otpExpiresAt: new Date(Date.now() - 10000) }))
+
+                await expect(authService.verifyOtp('test@gmail.com', OTP_CODE)).rejects.toThrow(new UnauthorizedException(ERRORS_MESSAGES.AUTH.EXPIRED_OTP))
+            })
+
+            it('should throw unauthorized invalid OTP when code is incorrect and expired', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue(pendingUser({ otpExpiresAt: new Date(Date.now() - 10000) }))
+
+                await expect(authService.verifyOtp('test@gmail.com', '654321')).rejects.toThrow(new UnauthorizedException(ERRORS_MESSAGES.AUTH.INVALID_OTP))
             })
 
             it('should throw exception repository method fails', async () => {
                 userRepositoryMocked.findOne = jest.fn().mockRejectedValue(new BadRequestException('An error occured'))
 
-                await expect(authService.verifyOtp('toto@gmail.com', '123456')).rejects.toThrow(new BadRequestException('An error occured'))
+                await expect(authService.verifyOtp('toto@gmail.com', OTP_CODE)).rejects.toThrow(new BadRequestException('An error occured'))
             })
         })
     })

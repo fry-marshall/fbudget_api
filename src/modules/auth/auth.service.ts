@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import * as bcrypt from "bcrypt";
 import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { AuthResponseDto } from "./dto/auth-response.dto";
 import { GoogleService } from "src/common/services/google.service";
@@ -13,6 +14,8 @@ import { MailService } from "src/common/services/mail.service";
 import { AuthProvider } from "../users/types";
 import { RefreshTokenService } from "../refresh-tokens/refresh-token.service";
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
+
+const OTP_SALT_ROUNDS = 10
 
 @Injectable()
 export class AuthService {
@@ -88,14 +91,14 @@ export class AuthService {
     }
 
     /**
-     * Generate a new OTP valid 15 minutes, save it and send it by email
+     * Generate a new OTP valid 15 minutes, save its bcrypt hash and send the plain code by email
      */
     private async sendOtp(user: User): Promise<void> {
         const otpCode = generateOtp();
         const expiredDateIn15Minutes = Date.now() + 900000
 
         await this.userRepository.update(user.id!, {
-            otpCode,
+            otpCode: await bcrypt.hash(otpCode, OTP_SALT_ROUNDS),
             otpExpiresAt: new Date(expiredDateIn15Minutes)
         });
 
@@ -112,10 +115,13 @@ export class AuthService {
 
     async verifyOtp(email: string, code: string): Promise<AuthResponseDto> {
         const now = Date.now()
-        let user = await this.userRepository.findOne({ where: { email, otpCode: code } });
+        const user = await this.userRepository.findOne({
+            select: { id: true, email: true, otpCode: true, otpExpiresAt: true },
+            where: { email }
+        });
 
-        if (!user) {
-            throw new NotFoundException(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND)
+        if (!user?.otpCode || !(await bcrypt.compare(code, user.otpCode))) {
+            throw new UnauthorizedException(ERRORS_MESSAGES.AUTH.INVALID_OTP)
         }
         if (now > user.otpExpiresAt?.getTime()!) {
             throw new UnauthorizedException(ERRORS_MESSAGES.AUTH.EXPIRED_OTP)

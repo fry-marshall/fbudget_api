@@ -1,5 +1,5 @@
 import { ERRORS_MESSAGES } from "src/common/constants";
-import { generateOtp, getTokenExpiry } from "src/common/helpers/helpers";
+import { getTokenExpiry } from "src/common/helpers/helpers";
 import { MailService } from "src/common/services/mail.service";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
 import { AuthProvider } from "src/modules/users/types";
@@ -7,7 +7,7 @@ import { User } from "src/modules/users/user.entity";
 import request from 'supertest';
 import { Repository } from "typeorm";
 import { resetDatabase } from "../utils/database";
-import { TEST_EMAIL } from "../utils/factories";
+import { buildUser, createUserWithPendingOtp, findUserWithOtp, getSentOtp, OTP_CODE, TEST_EMAIL } from "../utils/factories";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('POST auth/verify-otp', () => {
@@ -38,20 +38,13 @@ describe('POST auth/verify-otp', () => {
 
     describe('Success cases', () => {
         it('should return access and refresh tokens when OTP is valid', async () => {
-            const userCreated = await userRepository.save({
-                displayName: 'marshall',
-                email: TEST_EMAIL,
-                authProviders: [AuthProvider.EMAIL],
-                otpCode: generateOtp(),
-                otpExpiresAt: new Date(Date.now() + 100000),
-                settings: {}
-            });
+            const userCreated = await createUserWithPendingOtp(ctx)
 
             const response = await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/verify-otp')
-                .send({ email: TEST_EMAIL, code: userCreated.otpCode })
+                .send({ email: TEST_EMAIL, code: OTP_CODE })
 
-            const userVerified = await userRepository.findOne({ where: { email: TEST_EMAIL } })
+            const userVerified = await findUserWithOtp(ctx)
             const refreshTokens = await refreshTokenRepository.find({ where: { user: { id: userCreated.id } } })
 
             expect(response.statusCode).toBe(201)
@@ -64,56 +57,66 @@ describe('POST auth/verify-otp', () => {
             expect(refreshTokens[0].expiresAt).toEqual(getTokenExpiry(ctx.jwtService, response.body.data.refreshToken))
             expect(refreshTokens[0].expiresAt!.getTime()).toBeGreaterThan(Date.now())
         })
+
+        it('should accept the code sent by POST auth/email', async () => {
+            await request(ctx.app.getHttpServer())
+                .post('/api/v1/auth/email')
+                .send({ email: TEST_EMAIL })
+
+            const response = await request(ctx.app.getHttpServer())
+                .post('/api/v1/auth/verify-otp')
+                .send({ email: TEST_EMAIL, code: getSentOtp(mailServiceMocked) })
+
+            expect(response.statusCode).toBe(201)
+            expect(await refreshTokenRepository.count()).toEqual(1)
+        })
     })
 
     describe('Failure cases', () => {
-        it('should throw not found when user doesn\'t exist', async () => {
+        it('should throw unauthorized invalid OTP when user doesn\'t exist', async () => {
             const response = await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/verify-otp')
-                .send({ email: TEST_EMAIL, code: '123456' })
+                .send({ email: TEST_EMAIL, code: OTP_CODE })
 
-            expect(response.statusCode).toBe(404)
-            expect(response.body.message).toBe(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND)
+            expect(response.statusCode).toBe(401)
+            expect(response.body.message).toBe(ERRORS_MESSAGES.AUTH.INVALID_OTP)
             expect(await refreshTokenRepository.count()).toEqual(0)
         })
 
-        it('should throw not found when code is wrong', async () => {
-            const userCreated = await userRepository.save({
-                displayName: 'marshall',
-                email: TEST_EMAIL,
-                authProviders: [AuthProvider.EMAIL],
-                otpCode: '123456',
-                otpExpiresAt: new Date(Date.now() + 100000),
-                settings: {}
-            });
+        it('should throw unauthorized invalid OTP when code is wrong', async () => {
+            const userCreated = await createUserWithPendingOtp(ctx)
 
             const response = await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/verify-otp')
                 .send({ email: TEST_EMAIL, code: '654321' })
 
-            const userNotVerified = await userRepository.findOne({ where: { email: TEST_EMAIL } })
+            const userNotVerified = await findUserWithOtp(ctx)
 
-            expect(response.statusCode).toBe(404)
-            expect(response.body.message).toBe(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND)
+            expect(response.statusCode).toBe(401)
+            expect(response.body.message).toBe(ERRORS_MESSAGES.AUTH.INVALID_OTP)
             expect(userNotVerified?.otpCode).toEqual(userCreated.otpCode)
             expect(await refreshTokenRepository.count()).toEqual(0)
         })
 
-        it('should throw unauthorized when OTP is expired', async () => {
-            const userCreated = await userRepository.save({
-                displayName: 'marshall',
-                email: TEST_EMAIL,
-                authProviders: [AuthProvider.EMAIL],
-                otpCode: generateOtp(),
-                otpExpiresAt: new Date(Date.now() - 1000),
-                settings: {}
-            });
+        it('should throw bad request when the hash stored in database is sent as code', async () => {
+            const userCreated = await createUserWithPendingOtp(ctx)
 
             const response = await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/verify-otp')
                 .send({ email: TEST_EMAIL, code: userCreated.otpCode })
 
-            const userNotVerified = await userRepository.findOne({ where: { email: TEST_EMAIL } })
+            expect(response.statusCode).toBe(400)
+            expect(await refreshTokenRepository.count()).toEqual(0)
+        })
+
+        it('should throw unauthorized expired OTP when code is valid but expired', async () => {
+            const userCreated = await createUserWithPendingOtp(ctx, { otpExpiresAt: new Date(Date.now() - 1000) })
+
+            const response = await request(ctx.app.getHttpServer())
+                .post('/api/v1/auth/verify-otp')
+                .send({ email: TEST_EMAIL, code: OTP_CODE })
+
+            const userNotVerified = await findUserWithOtp(ctx)
 
             expect(response.statusCode).toBe(401)
             expect(response.body.message).toBe(ERRORS_MESSAGES.AUTH.EXPIRED_OTP)
@@ -121,44 +124,43 @@ describe('POST auth/verify-otp', () => {
             expect(await refreshTokenRepository.count()).toEqual(0)
         })
 
-        it('should throw not found when OTP has already been used', async () => {
-            const userCreated = await userRepository.save({
-                displayName: 'marshall',
-                email: TEST_EMAIL,
-                authProviders: [AuthProvider.EMAIL],
-                otpCode: generateOtp(),
-                otpExpiresAt: new Date(Date.now() + 100000),
-                settings: {}
-            });
-
-            const firstResponse = await request(ctx.app.getHttpServer())
-                .post('/api/v1/auth/verify-otp')
-                .send({ email: TEST_EMAIL, code: userCreated.otpCode })
-
-            const secondResponse = await request(ctx.app.getHttpServer())
-                .post('/api/v1/auth/verify-otp')
-                .send({ email: TEST_EMAIL, code: userCreated.otpCode })
-
-            expect(firstResponse.statusCode).toBe(201)
-            expect(secondResponse.statusCode).toBe(404)
-            expect(secondResponse.body.message).toBe(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND)
-            expect(await refreshTokenRepository.count()).toEqual(1)
-        })
-
-        it('should throw not found when user is only registered with google', async () => {
-            await userRepository.save({
-                displayName: 'marshall',
-                email: TEST_EMAIL,
-                authProviders: [AuthProvider.GOOGLE],
-                settings: {}
-            });
+        it('should throw unauthorized invalid OTP when code is wrong and expired', async () => {
+            await createUserWithPendingOtp(ctx, { otpExpiresAt: new Date(Date.now() - 1000) })
 
             const response = await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/verify-otp')
-                .send({ email: TEST_EMAIL, code: '123456' })
+                .send({ email: TEST_EMAIL, code: '654321' })
 
-            expect(response.statusCode).toBe(404)
-            expect(response.body.message).toBe(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND)
+            expect(response.statusCode).toBe(401)
+            expect(response.body.message).toBe(ERRORS_MESSAGES.AUTH.INVALID_OTP)
+        })
+
+        it('should throw unauthorized invalid OTP when OTP has already been used', async () => {
+            await createUserWithPendingOtp(ctx)
+
+            const firstResponse = await request(ctx.app.getHttpServer())
+                .post('/api/v1/auth/verify-otp')
+                .send({ email: TEST_EMAIL, code: OTP_CODE })
+
+            const secondResponse = await request(ctx.app.getHttpServer())
+                .post('/api/v1/auth/verify-otp')
+                .send({ email: TEST_EMAIL, code: OTP_CODE })
+
+            expect(firstResponse.statusCode).toBe(201)
+            expect(secondResponse.statusCode).toBe(401)
+            expect(secondResponse.body.message).toBe(ERRORS_MESSAGES.AUTH.INVALID_OTP)
+            expect(await refreshTokenRepository.count()).toEqual(1)
+        })
+
+        it('should throw unauthorized invalid OTP when user is only registered with google', async () => {
+            await userRepository.save(buildUser({ authProviders: [AuthProvider.GOOGLE] }))
+
+            const response = await request(ctx.app.getHttpServer())
+                .post('/api/v1/auth/verify-otp')
+                .send({ email: TEST_EMAIL, code: OTP_CODE })
+
+            expect(response.statusCode).toBe(401)
+            expect(response.body.message).toBe(ERRORS_MESSAGES.AUTH.INVALID_OTP)
             expect(await refreshTokenRepository.count()).toEqual(0)
         })
 

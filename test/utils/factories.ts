@@ -1,3 +1,4 @@
+import * as bcrypt from "bcrypt";
 import { getTokenExpiry } from "src/common/helpers/helpers";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
 import { AuthProvider } from "src/modules/users/types";
@@ -6,13 +7,30 @@ import { DeepPartial } from "typeorm";
 import { TestContext } from "./test-app";
 
 export const TEST_EMAIL = 'test@gmail.com';
+export const OTP_CODE = '123456';
 export const OTP_VALIDITY_MS = 15 * 60_000;
 
 /**
- * Check the OTP is a 6 digits code expiring in ~15 minutes
+ * Find a user with its otpCode column, which is not selected by default
  */
-export const expectValidOtp = (user: User | null) => {
-    expect(user?.otpCode).toMatch(/^\d{6}$/)
+export const findUserWithOtp = (ctx: TestContext, email: string = TEST_EMAIL): Promise<User | null> => ctx.repo(User)
+    .createQueryBuilder('user')
+    .addSelect('user.otpCode')
+    .where('user.email = :email', { email })
+    .getOne()
+
+/**
+ * Read the plain OTP sent in the last mail
+ */
+export const getSentOtp = (mailServiceMocked: { sendMail: jest.Mock }): string => mailServiceMocked.sendMail.mock.lastCall[0].context.code
+
+/**
+ * Check the stored OTP is the bcrypt hash of the 6 digits code sent by mail and expires in ~15 minutes
+ */
+export const expectValidOtp = async (user: User | null, sentCode: string) => {
+    expect(sentCode).toMatch(/^\d{6}$/)
+    expect(user?.otpCode).not.toEqual(sentCode)
+    expect(await bcrypt.compare(sentCode, user!.otpCode!)).toBe(true)
 
     const expiresIn = user!.otpExpiresAt!.getTime() - Date.now()
     expect(expiresIn).toBeGreaterThan(OTP_VALIDITY_MS - 60_000)
@@ -29,6 +47,15 @@ export const buildUser = (overrides: DeepPartial<User> = {}): DeepPartial<User> 
     settings: {},
     ...overrides
 })
+
+/**
+ * Save a user with a pending OTP stored hashed, the plain code to send is OTP_CODE
+ */
+export const createUserWithPendingOtp = async (ctx: TestContext, overrides: DeepPartial<User> = {}): Promise<User> => ctx.repo(User).save(buildUser({
+    otpCode: await bcrypt.hash(OTP_CODE, 4),
+    otpExpiresAt: new Date(Date.now() + 100000),
+    ...overrides
+}))
 
 /**
  * Sign an access token the same way as AuthService

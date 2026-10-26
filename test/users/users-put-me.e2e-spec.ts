@@ -5,7 +5,7 @@ import { User } from "src/modules/users/user.entity";
 import request from 'supertest';
 import { Repository } from "typeorm";
 import { resetDatabase } from "../utils/database";
-import { createUserAndLogin, signAccessToken, TEST_EMAIL } from "../utils/factories";
+import { createUserAndLogin, findUserWithOtp, signAccessToken, TEST_EMAIL } from "../utils/factories";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('PUT users/me', () => {
@@ -150,8 +150,8 @@ describe('PUT users/me', () => {
                 email: TEST_EMAIL,
                 plan: SubscriptionPlan.FREE,
                 role: UserRole.USER,
-                otpCode: null,
             })
+            expect((await findUserWithOtp(ctx))?.otpCode).toBeNull()
         })
 
         it('should throw unauthorized when no token is provided', async () => {

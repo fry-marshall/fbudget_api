@@ -4,8 +4,7 @@ import { Repository } from "typeorm";
 import request from 'supertest';
 import { AuthProvider } from "src/modules/users/types";
 import { resetDatabase } from "../utils/database";
-import { generateOtp } from "src/common/helpers/helpers";
-import { buildUser, expectValidOtp, TEST_EMAIL } from "../utils/factories";
+import { createUserWithPendingOtp, expectValidOtp, findUserWithOtp, getSentOtp, TEST_EMAIL } from "../utils/factories";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('POST auth/email', () => {
@@ -52,13 +51,12 @@ describe('POST auth/email', () => {
             expect(userCreated).not.toBeNull()
             expect(userCreated?.settings).toBeDefined()
             expect(userCreated?.authProviders).toEqual([AuthProvider.EMAIL])
-            expectValidOtp(userCreated)
+            await expectValidOtp(await findUserWithOtp(ctx), getSentOtp(mailServiceMocked))
             expect(mailServiceMocked.sendMail).toHaveBeenCalledTimes(1)
             expect(mailServiceMocked.sendMail).toHaveBeenCalledWith(expect.objectContaining({
                 receiver: TEST_EMAIL,
                 subject: 'Connexion à FBudget : Voici le code de vérification à 6 chiffres',
-                template: 'otp-verification',
-                context: expect.objectContaining({ code: userCreated?.otpCode })
+                template: 'otp-verification'
             }))
         })
 
@@ -81,12 +79,11 @@ describe('POST auth/email', () => {
             expect(userCreated?.id).toBe(userCreatedWithGoogleProvider.id)
             expect(userCreated?.authProviders).toContain(AuthProvider.EMAIL)
             expect(userCreated?.authProviders).toContain(AuthProvider.GOOGLE)
-            expectValidOtp(userCreated)
+            await expectValidOtp(await findUserWithOtp(ctx), getSentOtp(mailServiceMocked))
             expect(mailServiceMocked.sendMail).toHaveBeenCalledTimes(1)
             expect(mailServiceMocked.sendMail).toHaveBeenCalledWith(expect.objectContaining({
                 receiver: TEST_EMAIL,
-                template: 'otp-verification',
-                context: expect.objectContaining({ code: userCreated?.otpCode })
+                template: 'otp-verification'
             }))
         })
 
@@ -95,13 +92,13 @@ describe('POST auth/email', () => {
                 .post('/api/v1/auth/email')
                 .send({ email: TEST_EMAIL });
 
-            const userCreatedFirst = await userRepository.findOne({ where: { email: TEST_EMAIL } })
+            const userCreatedFirst = await findUserWithOtp(ctx)
 
             const response_2 = await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/email')
                 .send({ email: TEST_EMAIL });
 
-            const userCreatedAfter = await userRepository.findOne({ where: { email: TEST_EMAIL } })
+            const userCreatedAfter = await findUserWithOtp(ctx)
 
             expect(response_2.statusCode).toBe(201)
             expect(response_2.body.data.message).toBe('OTP send successfully')
@@ -112,36 +109,32 @@ describe('POST auth/email', () => {
             expect(userCreatedAfter?.authProviders).toEqual([AuthProvider.EMAIL])
             expect(userCreatedAfter?.otpCode).not.toEqual(userCreatedFirst?.otpCode)
             expect(userCreatedAfter?.otpExpiresAt).not.toEqual(userCreatedFirst?.otpExpiresAt)
-            expectValidOtp(userCreatedAfter)
+            await expectValidOtp(userCreatedAfter, getSentOtp(mailServiceMocked))
             expect(mailServiceMocked.sendMail).toHaveBeenCalledTimes(2)
             expect(mailServiceMocked.sendMail).toHaveBeenLastCalledWith(expect.objectContaining({
                 receiver: TEST_EMAIL,
-                template: 'otp-verification',
-                context: expect.objectContaining({ code: userCreatedAfter?.otpCode })
+                template: 'otp-verification'
             }))
         })
 
         it('should replace the previous OTP and send it with the user display name when resending a code', async () => {
-            const userCreated = await userRepository.save(buildUser({
-                otpCode: generateOtp(),
-                otpExpiresAt: new Date(Date.now() + 100000)
-            }))
+            const userCreated = await createUserWithPendingOtp(ctx)
 
             const response = await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/email')
                 .send({ email: TEST_EMAIL })
 
-            const userWithNewOtp = await userRepository.findOne({ where: { email: TEST_EMAIL } })
+            const userWithNewOtp = await findUserWithOtp(ctx)
 
             expect(response.statusCode).toBe(201)
             expect(response.body.data.message).toBe('OTP send successfully')
             expect(userWithNewOtp?.otpCode).not.toEqual(userCreated.otpCode)
-            expectValidOtp(userWithNewOtp)
+            await expectValidOtp(userWithNewOtp, getSentOtp(mailServiceMocked))
             expect(mailServiceMocked.sendMail).toHaveBeenCalledTimes(1)
             expect(mailServiceMocked.sendMail).toHaveBeenCalledWith(expect.objectContaining({
                 receiver: TEST_EMAIL,
                 context: {
-                    code: userWithNewOtp?.otpCode,
+                    code: getSentOtp(mailServiceMocked),
                     name: 'marshall'
                 }
             }))
@@ -152,7 +145,7 @@ describe('POST auth/email', () => {
                 .post('/api/v1/auth/email')
                 .send({ email: TEST_EMAIL });
 
-            const userCreatedFirst = await userRepository.findOne({ where: { email: TEST_EMAIL } })
+            const userCreatedFirst = await findUserWithOtp(ctx)
 
             await userRepository.softDelete({ id: userCreatedFirst?.id })
 
@@ -160,7 +153,7 @@ describe('POST auth/email', () => {
                 .post('/api/v1/auth/email')
                 .send({ email: TEST_EMAIL });
 
-            const userCreatedAfter = await userRepository.findOne({ where: { email: TEST_EMAIL } })
+            const userCreatedAfter = await findUserWithOtp(ctx)
             const userDeleted = await userRepository.findOne({ where: { id: userCreatedFirst?.id }, withDeleted: true })
 
             expect(response_2.statusCode).toBe(201)
@@ -170,12 +163,11 @@ describe('POST auth/email', () => {
             expect(userCreatedAfter?.id).not.toBe(userCreatedFirst?.id)
             expect(userDeleted?.deletedAt).toBeTruthy()
             expect(userCreatedAfter?.authProviders).toEqual([AuthProvider.EMAIL])
-            expectValidOtp(userCreatedAfter)
+            await expectValidOtp(userCreatedAfter, getSentOtp(mailServiceMocked))
             expect(mailServiceMocked.sendMail).toHaveBeenCalledTimes(2)
             expect(mailServiceMocked.sendMail).toHaveBeenLastCalledWith(expect.objectContaining({
                 receiver: TEST_EMAIL,
-                template: 'otp-verification',
-                context: expect.objectContaining({ code: userCreatedAfter?.otpCode })
+                template: 'otp-verification'
             }))
         })
     })
@@ -195,7 +187,7 @@ describe('POST auth/email', () => {
             const userCreated = await userRepository.findOne({ where: { email: TEST_EMAIL } })
 
             expect(userCreated?.authProviders).toEqual([AuthProvider.EMAIL])
-            expectValidOtp(userCreated)
+            await expectValidOtp(await findUserWithOtp(ctx), getSentOtp(mailServiceMocked))
             expect(mailServiceMocked.sendMail).toHaveBeenCalledTimes(1)
         })
 
