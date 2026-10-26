@@ -1,64 +1,38 @@
-import { INestApplication } from "@nestjs/common"
-import { ConfigService } from "@nestjs/config";
-import { JwtService } from "@nestjs/jwt";
-import { Test } from "@nestjs/testing";
-import { getRepositoryToken } from "@nestjs/typeorm";
-import { AppModule } from "src/app.module";
-import { setupApp } from "src/setup-app";
 import { ERRORS_MESSAGES } from "src/common/constants";
-import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
 import { Settings } from "src/modules/settings/settings.entity";
 import { Currency } from "src/modules/settings/types";
 import { AuthProvider, SubscriptionPlan, UserRole } from "src/modules/users/types";
 import { User } from "src/modules/users/user.entity";
 import request from 'supertest';
 import { Repository } from "typeorm";
-import { createUserWithRefreshToken, signAccessToken, TEST_EMAIL } from "../helpers";
+import { resetDatabase } from "../utils/database";
+import { createUserAndLogin, signAccessToken, TEST_EMAIL } from "../utils/factories";
+import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('GET users/me', () => {
-    let app: INestApplication;
+    let ctx: TestContext;
     let userRepository: Repository<User>;
     let settingsRepository: Repository<Settings>;
-    let refreshTokenRepository: Repository<RefreshToken>;
-    let jwtService: JwtService;
-    let configService: ConfigService;
-
-    const createUserWithAccessToken = async (authProvider: AuthProvider = AuthProvider.EMAIL) => {
-        const { user } = await createUserWithRefreshToken(userRepository, refreshTokenRepository, jwtService, configService, authProvider)
-        return { user, accessToken: signAccessToken(jwtService, configService, user) }
-    }
 
     beforeAll(async () => {
-        const moduleRef = await Test.createTestingModule({
-            imports: [AppModule]
-        }).compile()
-
-        app = moduleRef.createNestApplication()
-        setupApp(app)
-        userRepository = moduleRef.get<Repository<User>>(getRepositoryToken(User))
-        settingsRepository = moduleRef.get<Repository<Settings>>(getRepositoryToken(Settings))
-        refreshTokenRepository = moduleRef.get<Repository<RefreshToken>>(getRepositoryToken(RefreshToken))
-        jwtService = moduleRef.get(JwtService)
-        configService = moduleRef.get(ConfigService)
-
-        await app.init()
+        ctx = await createTestApp()
+        userRepository = ctx.repo(User)
+        settingsRepository = ctx.repo(Settings)
     })
 
     beforeEach(async () => {
-        await refreshTokenRepository.deleteAll()
-        await userRepository.deleteAll()
-        await settingsRepository.deleteAll()
+        await resetDatabase(ctx.dataSource)
     })
 
     afterAll(async () => {
-        await app.close()
+        await ctx.app.close()
     })
 
     describe('Success cases', () => {
         it.each([AuthProvider.EMAIL, AuthProvider.GOOGLE])('should return correct info when user create with %s', async (authProvider) => {
-            const { user, accessToken } = await createUserWithAccessToken(authProvider)
+            const { user, accessToken } = await createUserAndLogin(ctx, { authProviders: [authProvider] })
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .get('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 
@@ -81,10 +55,10 @@ describe('GET users/me', () => {
         })
 
         it('should not expose sensitive fields', async () => {
-            const { user, accessToken } = await createUserWithAccessToken()
+            const { user, accessToken } = await createUserAndLogin(ctx)
             await userRepository.update(user.id!, { otpCode: '123456', otpExpiresAt: new Date() })
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .get('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 
@@ -97,10 +71,10 @@ describe('GET users/me', () => {
         })
 
         it('should return updated settings', async () => {
-            const { user, accessToken } = await createUserWithAccessToken()
+            const { user, accessToken } = await createUserAndLogin(ctx)
             await settingsRepository.update(user.settings!.id!, { primaryCurrency: Currency.USD, monthlyBudget: 1500 })
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .get('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 
@@ -115,14 +89,14 @@ describe('GET users/me', () => {
 
     describe('Failure cases', () => {
         it('should throw unauthorized when no token is provided', async () => {
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .get('/api/v1/users/me')
 
             expect(response.statusCode).toBe(401)
         })
 
         it('should throw unauthorized when token is malformed', async () => {
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .get('/api/v1/users/me')
                 .set('Authorization', 'Bearer toto')
 
@@ -130,10 +104,10 @@ describe('GET users/me', () => {
         })
 
         it('should throw unauthorized when token is expired', async () => {
-            const { user } = await createUserWithAccessToken()
-            const expiredAccessToken = signAccessToken(jwtService, configService, user, -10)
+            const { user } = await createUserAndLogin(ctx)
+            const expiredAccessToken = signAccessToken(ctx, user, -10)
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .get('/api/v1/users/me')
                 .set('Authorization', `Bearer ${expiredAccessToken}`)
 
@@ -141,9 +115,9 @@ describe('GET users/me', () => {
         })
 
         it('should throw unauthorized when token is a refresh token', async () => {
-            const { refreshToken } = await createUserWithRefreshToken(userRepository, refreshTokenRepository, jwtService, configService)
+            const { refreshToken } = await createUserAndLogin(ctx)
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .get('/api/v1/users/me')
                 .set('Authorization', `Bearer ${refreshToken}`)
 
@@ -151,10 +125,10 @@ describe('GET users/me', () => {
         })
 
         it('should throw not found when user no longer exists', async () => {
-            const { user, accessToken } = await createUserWithAccessToken()
+            const { user, accessToken } = await createUserAndLogin(ctx)
             await userRepository.delete(user.id!)
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .get('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 
@@ -163,10 +137,10 @@ describe('GET users/me', () => {
         })
 
         it('should throw not found when user is soft deleted', async () => {
-            const { user, accessToken } = await createUserWithAccessToken()
+            const { user, accessToken } = await createUserAndLogin(ctx)
             await userRepository.softDelete(user.id!)
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .get('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 

@@ -1,45 +1,31 @@
-import { BadRequestException, INestApplication } from "@nestjs/common"
-import { Test } from "@nestjs/testing";
-import { getRepositoryToken } from "@nestjs/typeorm";
-import { AppModule } from 'src/app.module';
-import { setupApp } from 'src/setup-app';
+import { BadRequestException } from "@nestjs/common"
 import { GoogleService } from "src/common/services/google.service";
-import { Settings } from "src/modules/settings/settings.entity";
 import { Currency } from "src/modules/settings/types";
 import { AuthProvider } from "src/modules/users/types";
 import { User } from "src/modules/users/user.entity";
 import request from 'supertest';
 import { Repository } from "typeorm";
+import { resetDatabase } from "../utils/database";
+import { buildUser, TEST_EMAIL } from "../utils/factories";
+import { createTestApp, TestContext } from "../utils/test-app";
 
 describe("POST auth/google", () => {
-    let app: INestApplication;
+    let ctx: TestContext;
     let userRepository: Repository<User>;
-    let settingsRepository: Repository<Settings>;
 
     const googleServiceMocked = {
         verifyIdToken: jest.fn()
     }
 
     beforeAll(async () => {
-        const moduleRef = await Test.createTestingModule({
-            imports: [
-                AppModule
-            ]
-        }).overrideProvider(GoogleService)
-            .useValue(googleServiceMocked)
-            .compile()
-
-        app = moduleRef.createNestApplication();
-        setupApp(app)
-        userRepository = moduleRef.get<Repository<User>>(getRepositoryToken(User))
-        settingsRepository = moduleRef.get<Repository<Settings>>(getRepositoryToken(Settings))
-
-        await app.init();
+        ctx = await createTestApp([
+            { provider: GoogleService, useValue: googleServiceMocked }
+        ])
+        userRepository = ctx.repo(User)
     })
 
     beforeEach(async () => {
-        await settingsRepository.deleteAll()
-        await userRepository.deleteAll()
+        await resetDatabase(ctx.dataSource)
     })
 
     afterEach(() => {
@@ -49,12 +35,12 @@ describe("POST auth/google", () => {
     describe('Success cases', () => {
 
         it('should return 201 when user signed up successfully', async () => {
-            const userEmail = 'test@gmail.com'
+            const userEmail = TEST_EMAIL
             googleServiceMocked.verifyIdToken.mockResolvedValue({
                 id: 'id-token',
                 payload: { email: userEmail, name: 'test' }
             })
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/google')
                 .send({ idToken: 'id-token' });
 
@@ -83,20 +69,16 @@ describe("POST auth/google", () => {
         })
 
         it('should return 201 when user signed up successfully when user already signup as with email provider', async () => {
-            const userEmail = 'test@gmail.com'
+            const userEmail = TEST_EMAIL
 
-            const userWithEmailProvider = await userRepository.save({
-                email: userEmail,
-                authProviders: [AuthProvider.EMAIL],
-                settings: {}
-            })
+            const userWithEmailProvider = await userRepository.save(buildUser({ email: userEmail }))
 
             googleServiceMocked.verifyIdToken.mockResolvedValue({
                 id: 'id-token',
                 payload: { email: userEmail, name: 'test' }
             })
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/google')
                 .send({ idToken: 'id-token' });
 
@@ -131,7 +113,7 @@ describe("POST auth/google", () => {
         it('should throw BadRequestException when google verification token id fails', async () => {
             googleServiceMocked.verifyIdToken.mockRejectedValueOnce(new BadRequestException('Invalid id token'))
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/google')
                 .send({ idToken: 'id-token' });
 
@@ -141,6 +123,6 @@ describe("POST auth/google", () => {
     })
 
     afterAll(async () => {
-        await app.close()
+        await ctx.app.close()
     })
 })

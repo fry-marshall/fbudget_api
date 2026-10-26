@@ -1,57 +1,28 @@
-import { INestApplication } from "@nestjs/common"
-import { ConfigService } from "@nestjs/config";
-import { JwtService } from "@nestjs/jwt";
-import { Test } from "@nestjs/testing";
-import { getRepositoryToken } from "@nestjs/typeorm";
-import { AppModule } from "src/app.module";
-import { setupApp } from "src/setup-app";
 import { ERRORS_MESSAGES } from "src/common/constants";
-import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
-import { Settings } from "src/modules/settings/settings.entity";
 import { Currency } from "src/modules/settings/types";
-import { AuthProvider, SubscriptionPlan, UserRole } from "src/modules/users/types";
+import { SubscriptionPlan, UserRole } from "src/modules/users/types";
 import { User } from "src/modules/users/user.entity";
 import request from 'supertest';
 import { Repository } from "typeorm";
-import { createUserWithRefreshToken, signAccessToken, TEST_EMAIL } from "../helpers";
+import { resetDatabase } from "../utils/database";
+import { createUserAndLogin, signAccessToken, TEST_EMAIL } from "../utils/factories";
+import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('PUT users/me', () => {
-    let app: INestApplication;
+    let ctx: TestContext;
     let userRepository: Repository<User>;
-    let settingsRepository: Repository<Settings>;
-    let refreshTokenRepository: Repository<RefreshToken>;
-    let jwtService: JwtService;
-    let configService: ConfigService;
-
-    const createUserWithAccessToken = async (authProvider: AuthProvider = AuthProvider.EMAIL) => {
-        const { user } = await createUserWithRefreshToken(userRepository, refreshTokenRepository, jwtService, configService, authProvider)
-        return { user, accessToken: signAccessToken(jwtService, configService, user) }
-    }
 
     beforeAll(async () => {
-        const moduleRef = await Test.createTestingModule({
-            imports: [AppModule]
-        }).compile()
-
-        app = moduleRef.createNestApplication()
-        setupApp(app)
-        userRepository = moduleRef.get<Repository<User>>(getRepositoryToken(User))
-        settingsRepository = moduleRef.get<Repository<Settings>>(getRepositoryToken(Settings))
-        refreshTokenRepository = moduleRef.get<Repository<RefreshToken>>(getRepositoryToken(RefreshToken))
-        jwtService = moduleRef.get(JwtService)
-        configService = moduleRef.get(ConfigService)
-
-        await app.init()
+        ctx = await createTestApp()
+        userRepository = ctx.repo(User)
     })
 
     beforeEach(async () => {
-        await refreshTokenRepository.deleteAll()
-        await userRepository.deleteAll()
-        await settingsRepository.deleteAll()
+        await resetDatabase(ctx.dataSource)
     })
 
     afterAll(async () => {
-        await app.close()
+        await ctx.app.close()
     })
 
     describe('Success cases', () => {
@@ -60,11 +31,11 @@ describe('PUT users/me', () => {
             ['city', 'Paris'],
             ['country', 'France'],
         ])('should update only %s', async (field, value) => {
-            const { user, accessToken } = await createUserWithAccessToken()
+            const { user, accessToken } = await createUserAndLogin(ctx)
             await userRepository.update(user.id!, { city: 'Lyon', country: 'Italie' })
             const expected = { displayName: 'marshall', city: 'Lyon', country: 'Italie', [field]: value }
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({ [field]: value })
@@ -75,9 +46,9 @@ describe('PUT users/me', () => {
         })
 
         it('should update all fields and return correct info', async () => {
-            const { user, accessToken } = await createUserWithAccessToken()
+            const { user, accessToken } = await createUserAndLogin(ctx)
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({ displayName: 'toto', city: 'Paris', country: 'France' })
@@ -102,9 +73,9 @@ describe('PUT users/me', () => {
         })
 
         it('should leave user unchanged when body is empty', async () => {
-            const { accessToken } = await createUserWithAccessToken()
+            const { accessToken } = await createUserAndLogin(ctx)
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({})
@@ -118,10 +89,10 @@ describe('PUT users/me', () => {
         })
 
         it('should not expose sensitive fields', async () => {
-            const { user, accessToken } = await createUserWithAccessToken()
+            const { user, accessToken } = await createUserAndLogin(ctx)
             await userRepository.update(user.id!, { otpCode: '123456', otpExpiresAt: new Date() })
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({ displayName: 'toto' })
@@ -147,9 +118,9 @@ describe('PUT users/me', () => {
             ['city', null],
             ['country', null],
         ])('should throw bad request when %s is %p', async (field, value) => {
-            const { user, accessToken } = await createUserWithAccessToken()
+            const { user, accessToken } = await createUserAndLogin(ctx)
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({ [field]: value })
@@ -165,9 +136,9 @@ describe('PUT users/me', () => {
             ['role', UserRole.ADMIN],
             ['otpCode', '123456'],
         ])('should throw bad request when %s is sent', async (field, value) => {
-            const { user, accessToken } = await createUserWithAccessToken()
+            const { user, accessToken } = await createUserAndLogin(ctx)
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({ displayName: 'toto', [field]: value })
@@ -184,7 +155,7 @@ describe('PUT users/me', () => {
         })
 
         it('should throw unauthorized when no token is provided', async () => {
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .put('/api/v1/users/me')
                 .send({ displayName: 'toto' })
 
@@ -192,7 +163,7 @@ describe('PUT users/me', () => {
         })
 
         it('should throw unauthorized when token is malformed', async () => {
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .put('/api/v1/users/me')
                 .set('Authorization', 'Bearer toto')
                 .send({ displayName: 'toto' })
@@ -201,10 +172,10 @@ describe('PUT users/me', () => {
         })
 
         it('should throw unauthorized when token is expired', async () => {
-            const { user } = await createUserWithAccessToken()
-            const expiredAccessToken = signAccessToken(jwtService, configService, user, -10)
+            const { user } = await createUserAndLogin(ctx)
+            const expiredAccessToken = signAccessToken(ctx, user, -10)
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${expiredAccessToken}`)
                 .send({ displayName: 'toto' })
@@ -214,9 +185,9 @@ describe('PUT users/me', () => {
         })
 
         it('should throw unauthorized when token is a refresh token', async () => {
-            const { user, refreshToken } = await createUserWithRefreshToken(userRepository, refreshTokenRepository, jwtService, configService)
+            const { user, refreshToken } = await createUserAndLogin(ctx)
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${refreshToken}`)
                 .send({ displayName: 'toto' })
@@ -226,10 +197,10 @@ describe('PUT users/me', () => {
         })
 
         it('should throw not found when user no longer exists', async () => {
-            const { user, accessToken } = await createUserWithAccessToken()
+            const { user, accessToken } = await createUserAndLogin(ctx)
             await userRepository.delete(user.id!)
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({ displayName: 'toto' })
@@ -239,10 +210,10 @@ describe('PUT users/me', () => {
         })
 
         it('should throw not found when user is soft deleted', async () => {
-            const { user, accessToken } = await createUserWithAccessToken()
+            const { user, accessToken } = await createUserAndLogin(ctx)
             await userRepository.softDelete(user.id!)
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .put('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
                 .send({ displayName: 'toto' })

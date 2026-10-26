@@ -1,57 +1,30 @@
-import { INestApplication } from "@nestjs/common"
-import { ConfigService } from "@nestjs/config";
-import { JwtService } from "@nestjs/jwt";
-import { Test } from "@nestjs/testing";
-import { getRepositoryToken } from "@nestjs/typeorm";
-import { AppModule } from "src/app.module";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
-import { Settings } from "src/modules/settings/settings.entity";
 import { AuthProvider } from "src/modules/users/types";
 import { User } from "src/modules/users/user.entity";
-import { setupApp } from "src/setup-app";
-import { createUserWithRefreshToken, signAccessToken } from "../helpers";
 import { Repository } from "typeorm";
 import request from 'supertest'
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
-
+import { resetDatabase } from "../utils/database";
+import { createUserAndLogin, signAccessToken } from "../utils/factories";
+import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('DELETE users/me', () => {
-
-    let app: INestApplication;
+    let ctx: TestContext;
     let userRepository: Repository<User>;
-    let settingsRepository: Repository<Settings>;
     let refreshTokenRepository: Repository<RefreshToken>;
-    let jwtService: JwtService;
-    let configService: ConfigService;
-
-    const createUserWithAccessToken = async (authProvider: AuthProvider = AuthProvider.EMAIL) => {
-        const { user } = await createUserWithRefreshToken(userRepository, refreshTokenRepository, jwtService, configService, authProvider)
-        return { user, accessToken: signAccessToken(jwtService, configService, user) }
-    }
 
     beforeAll(async () => {
-        const moduleRef = await Test.createTestingModule({
-            imports: [AppModule]
-        }).compile()
-
-        app = moduleRef.createNestApplication()
-        setupApp(app);
-        userRepository = moduleRef.get<Repository<User>>(getRepositoryToken(User))
-        settingsRepository = moduleRef.get<Repository<Settings>>(getRepositoryToken(Settings))
-        refreshTokenRepository = moduleRef.get<Repository<RefreshToken>>(getRepositoryToken(RefreshToken))
-        jwtService = moduleRef.get(JwtService)
-        configService = moduleRef.get(ConfigService)
-        await app.init()
+        ctx = await createTestApp()
+        userRepository = ctx.repo(User)
+        refreshTokenRepository = ctx.repo(RefreshToken)
     })
 
     beforeEach(async () => {
-        await userRepository.deleteAll()
-        await settingsRepository.deleteAll()
-        await refreshTokenRepository.deleteAll()
+        await resetDatabase(ctx.dataSource)
     })
 
     afterAll(async () => {
-        await app.close()
+        await ctx.app.close()
     })
 
     describe('Success cases', () => {
@@ -59,9 +32,9 @@ describe('DELETE users/me', () => {
             AuthProvider.EMAIL,
             AuthProvider.GOOGLE,
         ])('should delete the user registered with %s', async (authProvider) => {
-            const {user, accessToken} = await createUserWithAccessToken(authProvider)
+            const {user, accessToken} = await createUserAndLogin(ctx, { authProviders: [authProvider] })
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
             
@@ -81,14 +54,14 @@ describe('DELETE users/me', () => {
 
     describe('Failure cases', () => {
         it('should throw unauthorized when no token is provided', async () => {
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
 
             expect(response.statusCode).toBe(401)
         })
 
         it('should throw unauthorized when token is malformed', async () => {
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
                 .set('Authorization', 'Bearer toto')
 
@@ -96,10 +69,10 @@ describe('DELETE users/me', () => {
         })
 
         it('should throw unauthorized and keep the user when token is expired', async () => {
-            const { user } = await createUserWithAccessToken()
-            const expiredAccessToken = signAccessToken(jwtService, configService, user, -10)
+            const { user } = await createUserAndLogin(ctx)
+            const expiredAccessToken = signAccessToken(ctx, user, -10)
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
                 .set('Authorization', `Bearer ${expiredAccessToken}`)
 
@@ -108,9 +81,9 @@ describe('DELETE users/me', () => {
         })
 
         it('should throw unauthorized and keep the user when token is a refresh token', async () => {
-            const { user, refreshToken } = await createUserWithRefreshToken(userRepository, refreshTokenRepository, jwtService, configService)
+            const { user, refreshToken } = await createUserAndLogin(ctx)
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
                 .set('Authorization', `Bearer ${refreshToken}`)
 
@@ -120,10 +93,10 @@ describe('DELETE users/me', () => {
         })
 
         it('should throw not found when user no longer exists', async () => {
-            const { user, accessToken } = await createUserWithAccessToken()
+            const { user, accessToken } = await createUserAndLogin(ctx)
             await userRepository.delete(user.id!)
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 
@@ -132,14 +105,14 @@ describe('DELETE users/me', () => {
         })
 
         it('should throw not found when user is already deleted', async () => {
-            const { user, accessToken } = await createUserWithAccessToken()
+            const { user, accessToken } = await createUserAndLogin(ctx)
 
-            const firstResponse = await request(app.getHttpServer())
+            const firstResponse = await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
             const deletedAt = (await userRepository.findOne({ where: { id: user.id }, withDeleted: true }))?.deletedAt
 
-            const secondResponse = await request(app.getHttpServer())
+            const secondResponse = await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 
@@ -150,14 +123,14 @@ describe('DELETE users/me', () => {
         })
 
         it('should throw not found when refreshing with the refresh token of a deleted user', async () => {
-            const { user, refreshToken } = await createUserWithRefreshToken(userRepository, refreshTokenRepository, jwtService, configService)
-            const accessToken = signAccessToken(jwtService, configService, user)
+            const { user, refreshToken } = await createUserAndLogin(ctx)
+            const accessToken = signAccessToken(ctx, user)
 
-            await request(app.getHttpServer())
+            await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/refresh')
                 .send({ refreshToken })
 
@@ -166,13 +139,13 @@ describe('DELETE users/me', () => {
         })
 
         it('should throw not found when getting me with the access token of a deleted user', async () => {
-            const { accessToken } = await createUserWithAccessToken()
+            const { accessToken } = await createUserAndLogin(ctx)
 
-            await request(app.getHttpServer())
+            await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .get('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
 

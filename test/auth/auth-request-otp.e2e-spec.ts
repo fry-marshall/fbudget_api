@@ -1,50 +1,36 @@
-import { INestApplication } from "@nestjs/common"
-import { Test } from "@nestjs/testing";
-import { getRepositoryToken } from "@nestjs/typeorm";
-import { AppModule } from "src/app.module";
-import { setupApp } from "src/setup-app";
 import { ERRORS_MESSAGES } from "src/common/constants";
 import { generateOtp } from "src/common/helpers/helpers";
 import { MailService } from "src/common/services/mail.service";
-import { Settings } from "src/modules/settings/settings.entity";
 import { AuthProvider } from "src/modules/users/types";
 import { User } from "src/modules/users/user.entity";
 import request from 'supertest';
 import { Repository } from "typeorm";
-import { TEST_EMAIL, expectValidOtp } from "../helpers";
+import { resetDatabase } from "../utils/database";
+import { expectValidOtp, TEST_EMAIL } from "../utils/factories";
+import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('POST auth/request-otp', () => {
-    let app: INestApplication;
-    let mailServiceMocked = {
-        sendMail: jest.fn()
-    };
+    let ctx: TestContext;
     let userRepository: Repository<User>;
-    let settingsRepository: Repository<Settings>;
+
+    const mailServiceMocked = {
+        sendMail: jest.fn()
+    }
 
     beforeAll(async () => {
-        const moduleRef = await Test.createTestingModule({
-            imports: [AppModule]
-        })
-            .overrideProvider(MailService)
-            .useValue(mailServiceMocked)
-            .compile()
-
-        app = moduleRef.createNestApplication()
-        setupApp(app)
-        userRepository = moduleRef.get<Repository<User>>(getRepositoryToken(User))
-        settingsRepository = moduleRef.get<Repository<Settings>>(getRepositoryToken(Settings))
-
-        await app.init()
+        ctx = await createTestApp([
+            { provider: MailService, useValue: mailServiceMocked }
+        ])
+        userRepository = ctx.repo(User)
     })
 
     beforeEach(async () => {
-        await userRepository.deleteAll()
-        await settingsRepository.deleteAll()
+        await resetDatabase(ctx.dataSource)
         jest.clearAllMocks()
     })
 
     afterAll(async () => {
-        await app.close()
+        await ctx.app.close()
     })
 
     describe('Success cases', () => {
@@ -59,7 +45,7 @@ describe('POST auth/request-otp', () => {
                 settings: {}
             });
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/request-otp')
                 .send({ email: TEST_EMAIL })
 
@@ -84,7 +70,7 @@ describe('POST auth/request-otp', () => {
 
         it('should return message: OTP send successfully when user doesn\'t exist', async () => {
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/request-otp')
                 .send({ email: TEST_EMAIL })
 
@@ -103,7 +89,7 @@ describe('POST auth/request-otp', () => {
                 settings: {}
             });
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/request-otp')
                 .send({ email: TEST_EMAIL })
 
@@ -126,7 +112,7 @@ describe('POST auth/request-otp', () => {
                 settings: {}
             });
 
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/request-otp')
                 .send({ email: TEST_EMAIL })
 
@@ -140,7 +126,7 @@ describe('POST auth/request-otp', () => {
         })
 
         it('should throw invalid request when email is malformed', async () => {
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/request-otp')
                 .send({ email: 'toto' })
 
@@ -149,7 +135,7 @@ describe('POST auth/request-otp', () => {
         })
 
         it('should throw invalid request when forbidden fields passed', async () => {
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/request-otp')
                 .send({ email: TEST_EMAIL, password: 'toto' })
 
@@ -158,7 +144,7 @@ describe('POST auth/request-otp', () => {
         })
 
         it('should throw invalid request when empty body', async () => {
-            const response = await request(app.getHttpServer())
+            const response = await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/request-otp')
                 .send({})
 
