@@ -137,7 +137,7 @@ describe('PUT users/me', () => {
             ['otpCode', '123456'],
             ['otpAttempts', 5],
             ['authProviders', [AuthProvider.GOOGLE]],
-            ['settings', { primaryCurrency: Currency.USD }],
+            ['settings', { primaryCurrency: Currency.XOF }],
             ['id', '00000000-0000-0000-0000-000000000000'],
         ])('should throw bad request when %s is sent', async (field, value) => {
             const { user, accessToken } = await createUserAndLogin(ctx)

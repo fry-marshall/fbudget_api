@@ -72,7 +72,7 @@ describe('GET users/me', () => {
 
         it('should return updated settings', async () => {
             const { user, accessToken } = await createUserAndLogin(ctx)
-            await settingsRepository.update(user.settings!.id!, { primaryCurrency: Currency.USD, monthlyBudget: 1500 })
+            await settingsRepository.update(user.settings!.id!, { primaryCurrency: Currency.XOF, monthlyBudget: 1500 })
 
             const response = await request(ctx.app.getHttpServer())
                 .get('/api/v1/users/me')
@@ -81,7 +81,7 @@ describe('GET users/me', () => {
             expect(response.statusCode).toBe(200)
             expect(response.body.data.settings).toStrictEqual({
                 id: user.settings!.id,
-                primaryCurrency: Currency.USD,
+                primaryCurrency: Currency.XOF,
                 monthlyBudget: 1500,
             })
         })

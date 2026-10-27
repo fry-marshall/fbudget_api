@@ -15,7 +15,7 @@ describe('PUT users/me/settings', () => {
     let settingsRepository: Repository<Settings>;
 
     const DEFAULT_SETTINGS = { primaryCurrency: Currency.EUR, monthlyBudget: null }
-    const VALID_BODY = { primaryCurrency: Currency.USD, monthlyBudget: 1500 }
+    const VALID_BODY = { primaryCurrency: Currency.XOF, monthlyBudget: 1500 }
 
     beforeAll(async () => {
         ctx = await createTestApp()
@@ -107,7 +107,7 @@ describe('PUT users/me/settings', () => {
     describe('Failure cases', () => {
         it.each([
             ['primaryCurrency is missing', { monthlyBudget: 1500 }],
-            ['monthlyBudget is missing', { primaryCurrency: Currency.USD }],
+            ['monthlyBudget is missing', { primaryCurrency: Currency.XOF }],
             ['body is empty', {}],
         ])('should throw bad request when %s', async (_, body) => {
             const { user, accessToken } = await createUserAndLogin(ctx)
@@ -124,6 +124,7 @@ describe('PUT users/me/settings', () => {
 
         it.each([
             ['primaryCurrency', 'gbp'],
+            ['primaryCurrency', 'usd'],
             ['primaryCurrency', 'EUR'],
             ['primaryCurrency', 123],
             ['primaryCurrency', ''],
