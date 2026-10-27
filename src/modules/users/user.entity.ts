@@ -3,6 +3,7 @@ import { AbstractEntity } from "src/common/entities/abstract.entity";
 import { AuthProvider, SubscriptionPlan, UserRole } from "./types";
 import { Settings } from "../settings/settings.entity";
 import { RefreshToken } from "../refresh-tokens/refresh-token.entity";
+import { Account } from "../accounts/account.entity";
 
 @Entity('users')
 @Index('UQ_users_email', ['email'], { unique: true })
@@ -42,4 +43,7 @@ export class User extends AbstractEntity {
 
     @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
     refreshTokens?: RefreshToken[]
+
+    @OneToMany(() => Account, (account) => account.user)
+    accounts?: Account[]
 }

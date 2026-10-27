@@ -1,12 +1,15 @@
+import { Account } from "src/modules/accounts/account.entity";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
 import { Settings } from "src/modules/settings/settings.entity";
+import { AccountType } from "src/modules/accounts/types";
+import { Currency } from "src/modules/settings/types";
 import { AuthProvider } from "src/modules/users/types";
 import { User } from "src/modules/users/user.entity";
 import { Repository } from "typeorm";
 import request from 'supertest'
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { resetDatabase } from "../utils/database";
-import { createUserAndLogin, signAccessToken } from "../utils/factories";
+import { createAccount, createUserAndLogin, signAccessToken } from "../utils/factories";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('DELETE users/me', () => {
@@ -14,12 +17,14 @@ describe('DELETE users/me', () => {
     let userRepository: Repository<User>;
     let refreshTokenRepository: Repository<RefreshToken>;
     let settingsRepository: Repository<Settings>;
+    let accountRepository: Repository<Account>;
 
     beforeAll(async () => {
         ctx = await createTestApp()
         userRepository = ctx.repo(User)
         refreshTokenRepository = ctx.repo(RefreshToken)
         settingsRepository = ctx.repo(Settings)
+        accountRepository = ctx.repo(Account)
     })
 
     beforeEach(async () => {
@@ -50,6 +55,8 @@ describe('DELETE users/me', () => {
 
         it('should permanently delete the user rows in database', async () => {
             const { user, accessToken } = await createUserAndLogin(ctx)
+            await createAccount(ctx, user, { isPrimary: true })
+            await createAccount(ctx, user, { type: AccountType.MOBILE_MONEY, name: 'Wave', currency: Currency.XOF })
 
             await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
@@ -60,11 +67,13 @@ describe('DELETE users/me', () => {
             expect(count).toEqual(0)
             expect(await settingsRepository.count()).toEqual(0)
             expect(await refreshTokenRepository.count()).toEqual(0)
+            expect(await accountRepository.count()).toEqual(0)
         })
 
         it('should keep the data of other users', async () => {
             const { accessToken } = await createUserAndLogin(ctx)
             const { user: otherUser } = await createUserAndLogin(ctx, { email: 'other@gmail.com' })
+            await createAccount(ctx, otherUser)
 
             await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
@@ -73,6 +82,7 @@ describe('DELETE users/me', () => {
             expect(await userRepository.findOneBy({ id: otherUser.id })).not.toBeNull()
             expect(await settingsRepository.count({ where: { user: { id: otherUser.id } } })).toEqual(1)
             expect(await refreshTokenRepository.count({ where: { user: { id: otherUser.id } } })).toEqual(1)
+            expect(await accountRepository.countBy({ userId: otherUser.id })).toEqual(1)
         })
 
         it('should allow to sign up again with the email of a deleted user', async () => {
