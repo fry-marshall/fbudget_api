@@ -9,6 +9,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/adapters/handlebars.ad
 import { JwtStrategy } from './common/strategies/jwt.strategy';
 import { UserModule } from './modules/users/user.module';
 import { AccountModule } from './modules/accounts/account.module';
+import { CategoryModule } from './modules/categories/category.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ERRORS_MESSAGES } from './common/constants';
 
@@ -49,6 +50,7 @@ import { ERRORS_MESSAGES } from './common/constants';
     }),
     UserModule,
     AccountModule,
+    CategoryModule,
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

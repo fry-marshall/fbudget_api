@@ -2,6 +2,8 @@ import * as bcrypt from "bcrypt";
 import { getTokenExpiry } from "src/common/helpers/helpers";
 import { Account } from "src/modules/accounts/account.entity";
 import { AccountType } from "src/modules/accounts/types";
+import { Category } from "src/modules/categories/category.entity";
+import { CategoryType } from "src/modules/categories/types";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
 import { Currency } from "src/modules/settings/types";
 import { AuthProvider } from "src/modules/users/types";
@@ -108,6 +110,12 @@ export const createAccount = (ctx: TestContext, user: User, overrides: DeepParti
     name: 'Visa *4782',
     currency: Currency.EUR,
     initialBalance: 150000,
+    userId: user.id,
+    ...overrides
+})
+
+export const createCategory = (ctx: TestContext, user: User, overrides: DeepPartial<Category> = {}): Promise<Category> => ctx.repo(Category).save({
+    type: CategoryType.GROCERIES,
     userId: user.id,
     ...overrides
 })
