@@ -58,17 +58,17 @@ describe('PUT users/me/settings', () => {
             expect(await settingsRepository.findOneBy({ id: user.settings!.id })).toMatchObject({ primaryCurrency: currency })
         })
 
-        it('should accept 0 as monthlyBudget', async () => {
+        it.each([0, 2147483647])('should accept %p as monthlyBudget', async (monthlyBudget) => {
             const { user, accessToken } = await createUserAndLogin(ctx)
 
             const response = await request(ctx.app.getHttpServer())
                 .put('/api/v1/users/me/settings')
                 .set('Authorization', `Bearer ${accessToken}`)
-                .send({ ...VALID_BODY, monthlyBudget: 0 })
+                .send({ ...VALID_BODY, monthlyBudget })
 
             expect(response.statusCode).toBe(200)
-            expect(response.body.data.monthlyBudget).toBe(0)
-            expect(await settingsRepository.findOneBy({ id: user.settings!.id })).toMatchObject({ monthlyBudget: 0 })
+            expect(response.body.data.monthlyBudget).toBe(monthlyBudget)
+            expect(await settingsRepository.findOneBy({ id: user.settings!.id })).toMatchObject({ monthlyBudget })
         })
 
         it('should not expose sensitive fields', async () => {
@@ -131,6 +131,7 @@ describe('PUT users/me/settings', () => {
             ['monthlyBudget', '1500'],
             ['monthlyBudget', 15.5],
             ['monthlyBudget', -100],
+            ['monthlyBudget', 2147483648],
             ['monthlyBudget', true],
             ['monthlyBudget', null],
         ])('should throw bad request when %s is %p', async (field, value) => {
@@ -216,6 +217,21 @@ describe('PUT users/me/settings', () => {
 
             expect(response.statusCode).toBe(404)
             expect(response.body.message).toBe(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND)
+        })
+
+        it('should throw not found when user has no settings', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            await settingsRepository.delete(user.settings!.id!)
+
+            const response = await request(ctx.app.getHttpServer())
+                .put('/api/v1/users/me/settings')
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send(VALID_BODY)
+
+            expect(response.statusCode).toBe(404)
+            expect(response.body.message).toBe(ERRORS_MESSAGES.SETTINGS.SETTINGS_NOT_FOUND)
+            expect(await settingsRepository.count()).toEqual(0)
+            expect(await userRepository.findOneBy({ id: user.id })).not.toBeNull()
         })
     })
 })

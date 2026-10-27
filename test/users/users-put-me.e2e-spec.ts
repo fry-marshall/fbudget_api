@@ -1,6 +1,6 @@
 import { ERRORS_MESSAGES } from "src/common/constants";
 import { Currency } from "src/modules/settings/types";
-import { SubscriptionPlan, UserRole } from "src/modules/users/types";
+import { AuthProvider, SubscriptionPlan, UserRole } from "src/modules/users/types";
 import { User } from "src/modules/users/user.entity";
 import request from 'supertest';
 import { Repository } from "typeorm";
@@ -135,6 +135,10 @@ describe('PUT users/me', () => {
             ['plan', 'premium'],
             ['role', UserRole.ADMIN],
             ['otpCode', '123456'],
+            ['otpAttempts', 5],
+            ['authProviders', [AuthProvider.GOOGLE]],
+            ['settings', { primaryCurrency: Currency.USD }],
+            ['id', '00000000-0000-0000-0000-000000000000'],
         ])('should throw bad request when %s is sent', async (field, value) => {
             const { user, accessToken } = await createUserAndLogin(ctx)
 
@@ -145,11 +149,15 @@ describe('PUT users/me', () => {
 
             expect(response.statusCode).toBe(400)
             expect(response.body.message).toBe(ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST)
-            expect(await userRepository.findOneBy({ id: user.id })).toMatchObject({
+            expect(await userRepository.findOne({ where: { id: user.id }, relations: { settings: true } })).toMatchObject({
+                id: user.id,
                 displayName: 'marshall',
                 email: TEST_EMAIL,
                 plan: SubscriptionPlan.FREE,
                 role: UserRole.USER,
+                authProviders: [AuthProvider.EMAIL],
+                otpAttempts: 0,
+                settings: { primaryCurrency: Currency.EUR },
             })
             expect((await findUserWithOtp(ctx))?.otpCode).toBeNull()
         })
