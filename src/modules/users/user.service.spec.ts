@@ -7,20 +7,16 @@ import { Currency } from "../settings/types";
 import { NotFoundException } from "@nestjs/common";
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { SettingsService } from "../settings/settings.service";
-import { RefreshTokenService } from "../refresh-tokens/refresh-token.service";
 
 describe('UserService', () => {
 
     let userRepositoryMocked = {
         findOne: jest.fn(),
         update: jest.fn(),
-        softDelete: jest.fn()
+        delete: jest.fn()
     };
     let settingsRepositoryMocked = {
         updateSettings: jest.fn(),
-    };
-    let refreshTokenServiceMocked = {
-        removeUserRefreshTokens: jest.fn(),
     };
     let userService: UserService;
 
@@ -47,7 +43,6 @@ describe('UserService', () => {
                 UserService,
                 { provide: getRepositoryToken(User), useValue: userRepositoryMocked },
                 { provide: SettingsService, useValue: settingsRepositoryMocked },
-                { provide: RefreshTokenService, useValue: refreshTokenServiceMocked }
             ]
         }).compile()
 
@@ -191,13 +186,11 @@ describe('UserService', () => {
         describe('Success cases', () => {
             it('should delete the user successfully', async () => {
                 userRepositoryMocked.findOne = jest.fn().mockResolvedValue(userMocked)
-                userRepositoryMocked.softDelete = jest.fn().mockResolvedValue(null)
-                refreshTokenServiceMocked.removeUserRefreshTokens = jest.fn().mockResolvedValue(undefined)
+                userRepositoryMocked.delete = jest.fn().mockResolvedValue({ affected: 1 })
 
                 const response = await userService.deleteMe(userMocked.id!)
                 expect(response.message).toBe(SUCCESS_MESSAGES.USER.USER_DELETED)
-                expect(refreshTokenServiceMocked.removeUserRefreshTokens).toHaveBeenCalledWith(userMocked.id)
-                expect(userRepositoryMocked.softDelete).toHaveBeenCalledWith(userMocked.id)
+                expect(userRepositoryMocked.delete).toHaveBeenCalledWith(userMocked.id)
             })
         })
         describe('Failure cases', () => {
@@ -209,7 +202,7 @@ describe('UserService', () => {
 
             it('should throw Error when delete user fails', async () => {
                 userRepositoryMocked.findOne = jest.fn().mockResolvedValue(userMocked)
-                userRepositoryMocked.softDelete = jest.fn().mockRejectedValue(new Error('An error has occured'))
+                userRepositoryMocked.delete = jest.fn().mockRejectedValue(new Error('An error has occured'))
 
                 await expect(userService.deleteMe(userMocked.id!)).rejects.toThrow(new Error('An error has occured'))
             })

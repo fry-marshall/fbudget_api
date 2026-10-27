@@ -1,4 +1,5 @@
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
+import { Settings } from "src/modules/settings/settings.entity";
 import { AuthProvider } from "src/modules/users/types";
 import { User } from "src/modules/users/user.entity";
 import { Repository } from "typeorm";
@@ -12,11 +13,13 @@ describe('DELETE users/me', () => {
     let ctx: TestContext;
     let userRepository: Repository<User>;
     let refreshTokenRepository: Repository<RefreshToken>;
+    let settingsRepository: Repository<Settings>;
 
     beforeAll(async () => {
         ctx = await createTestApp()
         userRepository = ctx.repo(User)
         refreshTokenRepository = ctx.repo(RefreshToken)
+        settingsRepository = ctx.repo(Settings)
     })
 
     beforeEach(async () => {
@@ -32,23 +35,57 @@ describe('DELETE users/me', () => {
             AuthProvider.EMAIL,
             AuthProvider.GOOGLE,
         ])('should delete the user registered with %s', async (authProvider) => {
-            const {user, accessToken} = await createUserAndLogin(ctx, { authProviders: [authProvider] })
+            const { user, accessToken } = await createUserAndLogin(ctx, { authProviders: [authProvider] })
 
             const response = await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
-            
 
             expect(response.statusCode).toEqual(200)
             expect(response.body.data.message).toEqual(SUCCESS_MESSAGES.USER.USER_DELETED)
-
-            const activeUser = await userRepository.findOne({where: {id: user.id}})
-            const deletedUser = await userRepository.findOne({where: {id: user.id}, withDeleted: true},)
-
-            expect(activeUser).toBeNull()
-            expect(deletedUser?.id).toBe(user.id)
-            expect(deletedUser?.deletedAt).toBeInstanceOf(Date)
+            expect(await userRepository.findOneBy({ id: user.id })).toBeNull()
+            expect(await settingsRepository.count({ where: { user: { id: user.id } } })).toEqual(0)
             expect(await refreshTokenRepository.count({ where: { user: { id: user.id } } })).toEqual(0)
+        })
+
+        it('should permanently delete the user rows in database', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+
+            await request(ctx.app.getHttpServer())
+                .delete('/api/v1/users/me')
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            const [{ count }] = await ctx.dataSource.query('SELECT COUNT(*)::int AS count FROM users WHERE id = $1', [user.id])
+
+            expect(count).toEqual(0)
+            expect(await settingsRepository.count()).toEqual(0)
+            expect(await refreshTokenRepository.count()).toEqual(0)
+        })
+
+        it('should keep the data of other users', async () => {
+            const { accessToken } = await createUserAndLogin(ctx)
+            const { user: otherUser } = await createUserAndLogin(ctx, { email: 'other@gmail.com' })
+
+            await request(ctx.app.getHttpServer())
+                .delete('/api/v1/users/me')
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            expect(await userRepository.findOneBy({ id: otherUser.id })).not.toBeNull()
+            expect(await settingsRepository.count({ where: { user: { id: otherUser.id } } })).toEqual(1)
+            expect(await refreshTokenRepository.count({ where: { user: { id: otherUser.id } } })).toEqual(1)
+        })
+
+        it('should allow to sign up again with the email of a deleted user', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+
+            await request(ctx.app.getHttpServer())
+                .delete('/api/v1/users/me')
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            const newUser = await userRepository.save({ email: user.email, settings: {} })
+
+            expect(newUser.id).not.toBe(user.id)
+            expect(await userRepository.countBy({ email: user.email })).toEqual(1)
         })
     })
 
@@ -105,12 +142,11 @@ describe('DELETE users/me', () => {
         })
 
         it('should throw not found when user is already deleted', async () => {
-            const { user, accessToken } = await createUserAndLogin(ctx)
+            const { accessToken } = await createUserAndLogin(ctx)
 
             const firstResponse = await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
                 .set('Authorization', `Bearer ${accessToken}`)
-            const deletedAt = (await userRepository.findOne({ where: { id: user.id }, withDeleted: true }))?.deletedAt
 
             const secondResponse = await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
@@ -119,7 +155,6 @@ describe('DELETE users/me', () => {
             expect(firstResponse.statusCode).toBe(200)
             expect(secondResponse.statusCode).toBe(404)
             expect(secondResponse.body.message).toBe(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND)
-            expect((await userRepository.findOne({ where: { id: user.id }, withDeleted: true }))?.deletedAt).toEqual(deletedAt)
         })
 
         it('should throw not found when refreshing with the refresh token of a deleted user', async () => {

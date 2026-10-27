@@ -42,7 +42,7 @@ export class UserController {
 
     @Delete('me')
     @UseGuards(JwtGuard)
-    @ApiOperation({ summary: 'Delete the connected user account' })
+    @ApiOperation({ summary: 'Permanently delete the connected user account with its settings and refresh tokens' })
     @ApiSuccessResponse(MessageResponseDto)
     @ApiNotFoundResponse({ description: ERRORS_MESSAGES.AUTH.USER_NOT_FOUND, type: ErrorResponse })
     deleteMe(@CurrentUser() user: PayloadJwt): Promise<MessageResponseDto> {

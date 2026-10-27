@@ -135,17 +135,5 @@ describe('GET users/me', () => {
             expect(response.statusCode).toBe(404)
             expect(response.body.message).toBe(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND)
         })
-
-        it('should throw not found when user is soft deleted', async () => {
-            const { user, accessToken } = await createUserAndLogin(ctx)
-            await userRepository.softDelete(user.id!)
-
-            const response = await request(ctx.app.getHttpServer())
-                .get('/api/v1/users/me')
-                .set('Authorization', `Bearer ${accessToken}`)
-
-            expect(response.statusCode).toBe(404)
-            expect(response.body.message).toBe(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND)
-        })
     })
 })

@@ -217,19 +217,5 @@ describe('PUT users/me/settings', () => {
             expect(response.statusCode).toBe(404)
             expect(response.body.message).toBe(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND)
         })
-
-        it('should throw not found when user is soft deleted', async () => {
-            const { user, accessToken } = await createUserAndLogin(ctx)
-            await userRepository.softDelete(user.id!)
-
-            const response = await request(ctx.app.getHttpServer())
-                .put('/api/v1/users/me/settings')
-                .set('Authorization', `Bearer ${accessToken}`)
-                .send(VALID_BODY)
-
-            expect(response.statusCode).toBe(404)
-            expect(response.body.message).toBe(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND)
-            expect(await settingsRepository.findOneBy({ id: user.settings!.id })).toMatchObject(DEFAULT_SETTINGS)
-        })
     })
 })

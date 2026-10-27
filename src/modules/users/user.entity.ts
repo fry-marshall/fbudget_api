@@ -1,11 +1,11 @@
-import { Column, DeleteDateColumn, Entity, Index, JoinColumn, OneToMany, OneToOne } from "typeorm";
+import { Column, Entity, Index, JoinColumn, OneToMany, OneToOne } from "typeorm";
 import { AbstractEntity } from "src/common/entities/abstract.entity";
 import { AuthProvider, SubscriptionPlan, UserRole } from "./types";
 import { Settings } from "../settings/settings.entity";
 import { RefreshToken } from "../refresh-tokens/refresh-token.entity";
 
 @Entity('users')
-@Index('UQ_users_email_active', ['email'], { unique: true, where: '"deletedAt" IS NULL' })
+@Index('UQ_users_email', ['email'], { unique: true })
 export class User extends AbstractEntity {
     @Column()
     email?: string;
@@ -42,7 +42,4 @@ export class User extends AbstractEntity {
 
     @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
     refreshTokens?: RefreshToken[]
-
-    @DeleteDateColumn({ type: 'timestamptz' })
-    deletedAt?: Date | null;
 }

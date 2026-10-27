@@ -140,28 +140,27 @@ describe('POST auth/email', () => {
             }))
         })
 
-        it('should return OTP send successfully when creating an account with a deleted email', async () => {
+        it('should create a new account when the email belongs to a deleted user', async () => {
             await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/email')
                 .send({ email: TEST_EMAIL });
 
             const userCreatedFirst = await findUserWithOtp(ctx)
 
-            await userRepository.softDelete({ id: userCreatedFirst?.id })
+            await userRepository.delete({ id: userCreatedFirst?.id })
 
             const response_2 = await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/email')
                 .send({ email: TEST_EMAIL });
 
             const userCreatedAfter = await findUserWithOtp(ctx)
-            const userDeleted = await userRepository.findOne({ where: { id: userCreatedFirst?.id }, withDeleted: true })
 
             expect(response_2.statusCode).toBe(201)
             expect(response_2.body.data.message).toBe('OTP send successfully')
             expect(userCreatedFirst).not.toBeNull()
             expect(userCreatedAfter).not.toBeNull()
             expect(userCreatedAfter?.id).not.toBe(userCreatedFirst?.id)
-            expect(userDeleted?.deletedAt).toBeTruthy()
+            expect(await userRepository.count()).toBe(1)
             expect(userCreatedAfter?.authProviders).toEqual([AuthProvider.EMAIL])
             await expectValidOtp(userCreatedAfter, getSentOtp(mailServiceMocked))
             expect(mailServiceMocked.sendMail).toHaveBeenCalledTimes(2)
