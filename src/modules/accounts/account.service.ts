@@ -1,13 +1,114 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { DataSource, EntityManager, Repository } from "typeorm";
+import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
+import { User } from "../users/user.entity";
 import { Account } from "./account.entity";
+import { AccountResponseDto } from "./dto/account-response.dto";
+import { CreateAccountDto } from "./dto/create-account.dto";
+import { UpdateAccountDto } from "./dto/update-account.dto";
 
 @Injectable()
 export class AccountService {
 
     constructor(
         @InjectRepository(Account)
-        private accountRepository: Repository<Account>
+        private accountRepository: Repository<Account>,
+        private dataSource: DataSource
     ) { }
+
+    async findAll(userId: string): Promise<AccountResponseDto[]> {
+        const accounts = await this.accountRepository.find({
+            where: { userId },
+            order: { createdAt: 'ASC' }
+        })
+
+        return accounts.map((account) => this.toDto(account))
+    }
+
+    async create(userId: string, createAccountDto: CreateAccountDto): Promise<AccountResponseDto> {
+        const account = await this.dataSource.transaction(async (manager) => {
+            await this.lockUser(manager, userId, ERRORS_MESSAGES.AUTH.USER_NOT_FOUND)
+
+            const hasAccount = await manager.exists(Account, { where: { userId } })
+
+            return manager.save(Account, { ...createAccountDto, userId, isPrimary: !hasAccount })
+        })
+
+        return this.toDto(account)
+    }
+
+    async update(userId: string, accountId: string, updateAccountDto: UpdateAccountDto): Promise<AccountResponseDto> {
+        const account = await this.findUserAccount(this.accountRepository.manager, userId, accountId)
+
+        await this.accountRepository.update(account.id!, { ...updateAccountDto })
+
+        return this.toDto((await this.accountRepository.findOneBy({ id: account.id }))!)
+    }
+
+    async setPrimary(userId: string, accountId: string): Promise<AccountResponseDto> {
+        const account = await this.dataSource.transaction(async (manager) => {
+            await this.lockUser(manager, userId, ERRORS_MESSAGES.ACCOUNTS.ACCOUNT_NOT_FOUND)
+            const account = await this.findUserAccount(manager, userId, accountId)
+
+            await manager.update(Account, { userId, isPrimary: true }, { isPrimary: false })
+            await manager.update(Account, account.id!, { isPrimary: true })
+
+            return manager.findOneByOrFail(Account, { id: account.id })
+        })
+
+        return this.toDto(account)
+    }
+
+    async remove(userId: string, accountId: string): Promise<{ message: string }> {
+        await this.dataSource.transaction(async (manager) => {
+            await this.lockUser(manager, userId, ERRORS_MESSAGES.ACCOUNTS.ACCOUNT_NOT_FOUND)
+            const account = await this.findUserAccount(manager, userId, accountId)
+
+            await manager.delete(Account, account.id!)
+
+            if (account.isPrimary) {
+                const oldestAccount = await manager.findOne(Account, { where: { userId }, order: { createdAt: 'ASC' } })
+
+                if (oldestAccount) {
+                    await manager.update(Account, oldestAccount.id!, { isPrimary: true })
+                }
+            }
+        })
+
+        return { message: SUCCESS_MESSAGES.ACCOUNT.ACCOUNT_DELETED }
+    }
+
+    private async lockUser(manager: EntityManager, userId: string, notFoundMessage: string): Promise<void> {
+        const user = await manager.findOne(User, { where: { id: userId }, lock: { mode: 'pessimistic_write' } })
+
+        if (!user) {
+            throw new NotFoundException(notFoundMessage)
+        }
+    }
+
+    private async findUserAccount(manager: EntityManager, userId: string, accountId: string): Promise<Account> {
+        const account = await manager.findOne(Account, { where: { id: accountId, userId } })
+
+        if (!account) {
+            throw new NotFoundException(ERRORS_MESSAGES.ACCOUNTS.ACCOUNT_NOT_FOUND)
+        }
+
+        return account
+    }
+
+    private toDto(account: Account): AccountResponseDto {
+        return {
+            id: account.id,
+            type: account.type,
+            operator: account.operator ?? null,
+            name: account.name,
+            last4: account.last4 ?? null,
+            country: account.country ?? null,
+            currency: account.currency,
+            initialBalance: account.initialBalance,
+            isPrimary: account.isPrimary,
+            createdAt: account.createdAt,
+        }
+    }
 }

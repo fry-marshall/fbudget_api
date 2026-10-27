@@ -6,4 +6,7 @@ export const SUCCESS_MESSAGES = {
     USER: {
         USER_DELETED: 'User deleted successfully'
     },
+    ACCOUNT: {
+        ACCOUNT_DELETED: 'Account deleted successfully'
+    },
 }

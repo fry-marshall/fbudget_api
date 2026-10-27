@@ -13,5 +13,8 @@ export const ERRORS_MESSAGES = {
     },
     SETTINGS: {
         SETTINGS_NOT_FOUND: 'Settings not found'
+    },
+    ACCOUNTS: {
+        ACCOUNT_NOT_FOUND: 'Account not found'
     }
 }

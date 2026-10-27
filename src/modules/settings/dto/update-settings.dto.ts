@@ -1,8 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsDefined, IsEnum, IsInt, Max, Min } from "class-validator";
+import { MAX_INT } from "src/common/constants";
 import { Currency } from "../types";
-
-const MAX_INT = 2147483647
 
 export class UpdateSettingsDto {
     @ApiProperty({ enum: Currency })

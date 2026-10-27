@@ -22,3 +22,22 @@ export const ApiSuccessResponse = <T extends new (...args: any[]) => any>(
             },
         }),
     );
+
+export const ApiSuccessArrayResponse = <T extends new (...args: any[]) => any>(
+    dataType: T,
+    statusCode: 200 | 201 = 200,
+    description = 'Success',
+) =>
+    applyDecorators(
+        ApiExtraModels(dataType),
+        ApiResponse({
+            status: statusCode,
+            description,
+            schema: {
+                properties: {
+                    statusCode: { type: 'number', example: statusCode },
+                    data: { type: 'array', items: { $ref: getSchemaPath(dataType) } },
+                },
+            },
+        }),
+    );
