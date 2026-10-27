@@ -1,5 +1,6 @@
-import { Body, Controller, Post } from "@nestjs/common";
-import { ApiBadRequestResponse, ApiNotFoundResponse, ApiOperation, ApiTags, ApiUnauthorizedResponse } from "@nestjs/swagger";
+import { Body, Controller, Post, UseGuards } from "@nestjs/common";
+import { ThrottlerGuard } from "@nestjs/throttler";
+import { ApiBadRequestResponse, ApiNotFoundResponse, ApiOperation, ApiTags, ApiTooManyRequestsResponse, ApiUnauthorizedResponse } from "@nestjs/swagger";
 import { AuthGoogleDto } from "./dto/auth-google.dto";
 import { AuthService } from "./auth.service";
 import { AuthResponseDto } from "./dto/auth-response.dto";
@@ -27,18 +28,22 @@ export class AuthController {
     }
 
     @Post('email')
+    @UseGuards(ThrottlerGuard)
     @ApiOperation({ summary: 'Create the account if needed and send an OTP by email, call again to resend a new code' })
     @ApiSuccessResponse(MessageResponseDto, 201)
     @ApiBadRequestResponse({ description: ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST, type: ErrorResponse })
+    @ApiTooManyRequestsResponse({ description: ERRORS_MESSAGES.EXCEPTIONS.TOO_MANY_REQUESTS, type: ErrorResponse })
     emailAuthentication(@Body() authEmailDto: AuthEmailDto): Promise<MessageResponseDto> {
         return this.authService.emailAuthentication(authEmailDto.email!);
     }
 
     @Post('verify-otp')
+    @UseGuards(ThrottlerGuard)
     @ApiOperation({ summary: 'Verify the OTP and return a token pair' })
     @ApiSuccessResponse(AuthResponseDto, 201)
     @ApiBadRequestResponse({ description: ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST, type: ErrorResponse })
     @ApiUnauthorizedResponse({ description: `${ERRORS_MESSAGES.AUTH.INVALID_OTP} | ${ERRORS_MESSAGES.AUTH.EXPIRED_OTP}`, type: ErrorResponse })
+    @ApiTooManyRequestsResponse({ description: ERRORS_MESSAGES.EXCEPTIONS.TOO_MANY_REQUESTS, type: ErrorResponse })
     verifyOtp(@Body() verifyOtpDto: VerifyOtpDto): Promise<AuthResponseDto> {
         return this.authService.verifyOtp(verifyOtpDto.email!, verifyOtpDto.code!);
     }

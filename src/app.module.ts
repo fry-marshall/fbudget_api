@@ -8,6 +8,8 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/adapters/handlebars.adapter';
 import { JwtStrategy } from './common/strategies/jwt.strategy';
 import { UserModule } from './modules/users/user.module';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { ERRORS_MESSAGES } from './common/constants';
 
 @Module({
   imports: [
@@ -44,7 +46,17 @@ import { UserModule } from './modules/users/user.module';
       }
 
     }),
-    UserModule
+    UserModule,
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        throttlers: [{
+          ttl: config.get('THROTTLE_TTL')!,
+          limit: config.get('THROTTLE_LIMIT')!,
+        }],
+        errorMessage: ERRORS_MESSAGES.EXCEPTIONS.TOO_MANY_REQUESTS
+      })
+    })
   ],
   providers: [JwtStrategy],
 })

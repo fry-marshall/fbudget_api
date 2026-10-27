@@ -2,6 +2,7 @@ export const ERRORS_MESSAGES = {
     EXCEPTIONS: {
         BAD_REQUEST: "Invalid request",
         INTERNAL_ERROR: "Internal error",
+        TOO_MANY_REQUESTS: "Too many requests, please try again later",
     },
     AUTH: {
         USER_NOT_FOUND: 'User not found',

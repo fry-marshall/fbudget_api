@@ -28,6 +28,21 @@ const userRepositoryMocked = {
     }),
     update: jest.fn(),
     save: jest.fn(),
+    createQueryBuilder: jest.fn(),
+}
+
+/**
+ * Mock the atomic attempt reservation of verifyOtp: attempts is the count after increment, null when no row is updated
+ */
+const mockReserveOtpAttempt = (attempts: number | null) => {
+    const execute = jest.fn().mockResolvedValue(attempts === null ? { affected: 0, raw: [] } : { affected: 1, raw: [{ otpAttempts: attempts }] })
+    const queryBuilder = { update: jest.fn(), set: jest.fn(), where: jest.fn(), returning: jest.fn(), execute }
+    queryBuilder.update.mockReturnValue(queryBuilder)
+    queryBuilder.set.mockReturnValue(queryBuilder)
+    queryBuilder.where.mockReturnValue(queryBuilder)
+    queryBuilder.returning.mockReturnValue(queryBuilder)
+    userRepositoryMocked.createQueryBuilder = jest.fn().mockReturnValue(queryBuilder)
+    return execute
 }
 
 let jwtServiceMocked = {
@@ -249,6 +264,11 @@ describe('AuthService', () => {
             ...overrides
         })
 
+        beforeEach(() => {
+            mockReserveOtpAttempt(1)
+            userRepositoryMocked.update = jest.fn()
+        })
+
         describe('success cases', () => {
             it('should return credentials and clear the OTP when code is valid & expired time not reached yet', async () => {
                 userRepositoryMocked.findOne = jest.fn().mockResolvedValue(pendingUser())
@@ -258,8 +278,17 @@ describe('AuthService', () => {
 
                 expect(response.accessToken).toBe('access-token')
                 expect(response.refreshToken).toBe('refresh-token')
-                expect(userRepositoryMocked.update).toHaveBeenCalledWith('toto', { otpCode: null, otpExpiresAt: null })
+                expect(userRepositoryMocked.update).toHaveBeenCalledWith('toto', { otpCode: null, otpExpiresAt: null, otpAttempts: 0 })
             });
+
+            it('should reset the attempts counter when code is valid', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue(pendingUser())
+                mockReserveOtpAttempt(4)
+
+                await authService.verifyOtp('test@gmail.com', OTP_CODE)
+
+                expect(userRepositoryMocked.update).toHaveBeenCalledWith('toto', expect.objectContaining({ otpAttempts: 0 }))
+            })
         })
 
         describe('failure cases', () => {
@@ -291,6 +320,30 @@ describe('AuthService', () => {
                 userRepositoryMocked.findOne = jest.fn().mockResolvedValue(pendingUser({ otpExpiresAt: new Date(Date.now() - 10000) }))
 
                 await expect(authService.verifyOtp('test@gmail.com', '654321')).rejects.toThrow(new UnauthorizedException(ERRORS_MESSAGES.AUTH.INVALID_OTP))
+            })
+
+            it('should throw unauthorized invalid OTP even with the right code when the attempts limit is reached', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue(pendingUser())
+                mockReserveOtpAttempt(null)
+
+                await expect(authService.verifyOtp('test@gmail.com', OTP_CODE)).rejects.toThrow(new UnauthorizedException(ERRORS_MESSAGES.AUTH.INVALID_OTP))
+                expect(userRepositoryMocked.update).not.toHaveBeenCalled()
+            })
+
+            it('should keep the OTP when code is incorrect before the last attempt', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue(pendingUser())
+                mockReserveOtpAttempt(4)
+
+                await expect(authService.verifyOtp('test@gmail.com', '654321')).rejects.toThrow(new UnauthorizedException(ERRORS_MESSAGES.AUTH.INVALID_OTP))
+                expect(userRepositoryMocked.update).not.toHaveBeenCalled()
+            })
+
+            it('should clear the OTP when code is incorrect on the last attempt', async () => {
+                userRepositoryMocked.findOne = jest.fn().mockResolvedValue(pendingUser())
+                mockReserveOtpAttempt(5)
+
+                await expect(authService.verifyOtp('test@gmail.com', '654321')).rejects.toThrow(new UnauthorizedException(ERRORS_MESSAGES.AUTH.INVALID_OTP))
+                expect(userRepositoryMocked.update).toHaveBeenCalledWith('toto', { otpCode: null, otpExpiresAt: null })
             })
 
             it('should throw exception repository method fails', async () => {

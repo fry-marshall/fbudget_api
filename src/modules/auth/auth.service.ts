@@ -16,6 +16,7 @@ import { RefreshTokenService } from "../refresh-tokens/refresh-token.service";
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 
 const OTP_SALT_ROUNDS = 10
+const OTP_MAX_ATTEMPTS = 5
 
 @Injectable()
 export class AuthService {
@@ -99,7 +100,8 @@ export class AuthService {
 
         await this.userRepository.update(user.id!, {
             otpCode: await bcrypt.hash(otpCode, OTP_SALT_ROUNDS),
-            otpExpiresAt: new Date(expiredDateIn15Minutes)
+            otpExpiresAt: new Date(expiredDateIn15Minutes),
+            otpAttempts: 0
         });
 
         await this.mailService.sendMail({
@@ -120,7 +122,19 @@ export class AuthService {
             where: { email }
         });
 
-        if (!user?.otpCode || !(await bcrypt.compare(code, user.otpCode))) {
+        if (!user?.otpCode) {
+            throw new UnauthorizedException(ERRORS_MESSAGES.AUTH.INVALID_OTP)
+        }
+
+        const attempts = await this.reserveOtpAttempt(user.id!)
+        if (attempts === null) {
+            throw new UnauthorizedException(ERRORS_MESSAGES.AUTH.INVALID_OTP)
+        }
+
+        if (!(await bcrypt.compare(code, user.otpCode))) {
+            if (attempts >= OTP_MAX_ATTEMPTS) {
+                await this.userRepository.update(user.id!, { otpCode: null, otpExpiresAt: null })
+            }
             throw new UnauthorizedException(ERRORS_MESSAGES.AUTH.INVALID_OTP)
         }
         if (now > user.otpExpiresAt?.getTime()!) {
@@ -130,6 +144,7 @@ export class AuthService {
         await this.userRepository.update(user.id!, {
             otpCode: null,
             otpExpiresAt: null,
+            otpAttempts: 0
         })
 
         const tokens = this.generateTokens(user.id!, user.email!)
@@ -138,6 +153,21 @@ export class AuthService {
 
         return tokens;
 
+    }
+
+    /**
+     * Atomically count an attempt before comparing the code, so parallel requests can't exceed OTP_MAX_ATTEMPTS.
+     * Return the attempts count, or null when there is no pending code or the limit is reached
+     */
+    private async reserveOtpAttempt(userId: string): Promise<number | null> {
+        const result = await this.userRepository.createQueryBuilder()
+            .update(User)
+            .set({ otpAttempts: () => '"otpAttempts" + 1' })
+            .where('id = :userId AND "otpCode" IS NOT NULL AND "otpAttempts" < :max', { userId, max: OTP_MAX_ATTEMPTS })
+            .returning('"otpAttempts"')
+            .execute()
+
+        return result.affected ? result.raw[0].otpAttempts : null
     }
 
     async refreshToken(refreshTokenParam: string): Promise<AuthResponseDto> {

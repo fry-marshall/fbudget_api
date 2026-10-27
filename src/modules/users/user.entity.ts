@@ -34,6 +34,9 @@ export class User extends AbstractEntity {
     @Column({ nullable: true, type: 'timestamptz' })
     otpExpiresAt?: Date;
 
+    @Column({ type: 'int', default: 0 })
+    otpAttempts?: number;
+
     @OneToOne(() => Settings, (settings) => settings.user, { cascade: ['insert'] })
     settings?: Settings;
 

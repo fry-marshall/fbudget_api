@@ -58,6 +58,37 @@ describe('POST auth/verify-otp', () => {
             expect(refreshTokens[0].expiresAt!.getTime()).toBeGreaterThan(Date.now())
         })
 
+        it('should accept the right code after 4 wrong attempts and reset the counter', async () => {
+            await createUserWithPendingOtp(ctx)
+
+            for (let i = 0; i < 4; i++) {
+                await request(ctx.app.getHttpServer())
+                    .post('/api/v1/auth/verify-otp')
+                    .send({ email: TEST_EMAIL, code: '654321' })
+            }
+
+            const response = await request(ctx.app.getHttpServer())
+                .post('/api/v1/auth/verify-otp')
+                .send({ email: TEST_EMAIL, code: OTP_CODE })
+
+            expect(response.statusCode).toBe(201)
+            expect((await findUserWithOtp(ctx))?.otpAttempts).toBe(0)
+        })
+
+        it('should accept a new code requested via POST auth/email after the attempts limit is reached', async () => {
+            await createUserWithPendingOtp(ctx, { otpAttempts: 5 })
+
+            await request(ctx.app.getHttpServer())
+                .post('/api/v1/auth/email')
+                .send({ email: TEST_EMAIL })
+
+            const response = await request(ctx.app.getHttpServer())
+                .post('/api/v1/auth/verify-otp')
+                .send({ email: TEST_EMAIL, code: getSentOtp(mailServiceMocked) })
+
+            expect(response.statusCode).toBe(201)
+        })
+
         it('should accept the code sent by POST auth/email', async () => {
             await request(ctx.app.getHttpServer())
                 .post('/api/v1/auth/email')
@@ -162,6 +193,43 @@ describe('POST auth/verify-otp', () => {
             expect(response.statusCode).toBe(401)
             expect(response.body.message).toBe(ERRORS_MESSAGES.AUTH.INVALID_OTP)
             expect(await refreshTokenRepository.count()).toEqual(0)
+        })
+
+        it('should refuse the right code and clear the OTP after 5 wrong attempts', async () => {
+            await createUserWithPendingOtp(ctx)
+
+            for (let i = 0; i < 5; i++) {
+                const wrongResponse = await request(ctx.app.getHttpServer())
+                    .post('/api/v1/auth/verify-otp')
+                    .send({ email: TEST_EMAIL, code: '654321' })
+                expect(wrongResponse.statusCode).toBe(401)
+            }
+
+            const response = await request(ctx.app.getHttpServer())
+                .post('/api/v1/auth/verify-otp')
+                .send({ email: TEST_EMAIL, code: OTP_CODE })
+
+            const userLocked = await findUserWithOtp(ctx)
+
+            expect(response.statusCode).toBe(401)
+            expect(response.body.message).toBe(ERRORS_MESSAGES.AUTH.INVALID_OTP)
+            expect(userLocked?.otpCode).toBeNull()
+            expect(userLocked?.otpAttempts).toBe(5)
+            expect(await refreshTokenRepository.count()).toEqual(0)
+        })
+
+        it('should not exceed 5 attempts when wrong codes are sent in parallel', async () => {
+            await createUserWithPendingOtp(ctx)
+
+            const responses = await Promise.all(Array.from({ length: 10 }, () => request(ctx.app.getHttpServer())
+                .post('/api/v1/auth/verify-otp')
+                .send({ email: TEST_EMAIL, code: '654321' })))
+
+            const userLocked = await findUserWithOtp(ctx)
+
+            expect(responses.every((response) => response.statusCode === 401)).toBe(true)
+            expect(userLocked?.otpAttempts).toBe(5)
+            expect(userLocked?.otpCode).toBeNull()
         })
 
         it('should throw invalid request when email is malformed', async () => {
