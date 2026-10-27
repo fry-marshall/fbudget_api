@@ -132,6 +132,23 @@ describe('POST auth/refresh', () => {
             expect(await refreshTokenRepository.count()).toEqual(0)
         })
 
+        it('should throw unauthorized when refreshing with a token revoked by logout', async () => {
+            const { refreshToken } = await createUserAndLogin(ctx)
+
+            const logoutResponse = await request(ctx.app.getHttpServer())
+                .post('/api/v1/auth/logout')
+                .send({ refreshToken })
+
+            const response = await request(ctx.app.getHttpServer())
+                .post('/api/v1/auth/refresh')
+                .send({ refreshToken })
+
+            expect(logoutResponse.statusCode).toBe(201)
+            expect(response.statusCode).toBe(401)
+            expect(response.body.message).toBe(ERRORS_MESSAGES.AUTH.TOKEN_NOT_FOUND)
+            expect(await refreshTokenRepository.count()).toEqual(0)
+        })
+
         it('should throw not found when user no longer exists', async () => {
             const { user, refreshToken } = await createUserAndLogin(ctx)
             await userRepository.delete(user.id!)
