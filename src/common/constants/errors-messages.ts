@@ -16,5 +16,9 @@ export const ERRORS_MESSAGES = {
     },
     ACCOUNTS: {
         ACCOUNT_NOT_FOUND: 'Account not found'
+    },
+    CATEGORIES: {
+        CATEGORY_NOT_FOUND: 'Category not found',
+        CATEGORY_ALREADY_EXISTS: 'A category with this type already exists',
     }
 }

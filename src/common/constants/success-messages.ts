@@ -9,4 +9,7 @@ export const SUCCESS_MESSAGES = {
     ACCOUNT: {
         ACCOUNT_DELETED: 'Account deleted successfully'
     },
+    CATEGORY: {
+        CATEGORY_DELETED: 'Category deleted successfully'
+    },
 }
