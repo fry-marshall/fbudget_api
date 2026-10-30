@@ -39,7 +39,7 @@ export class AccountController {
     }
 
     @Put(':id')
-    @ApiOperation({ summary: 'Update an account of the connected user, the currency cannot be changed' })
+    @ApiOperation({ summary: 'Update an account of the connected user' })
     @ApiSuccessResponse(AccountResponseDto)
     @ApiBadRequestResponse({ description: ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST, type: ErrorResponse })
     @ApiNotFoundResponse({ description: ERRORS_MESSAGES.ACCOUNTS.ACCOUNT_NOT_FOUND, type: ErrorResponse })

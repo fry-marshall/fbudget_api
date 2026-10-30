@@ -5,8 +5,8 @@ import { User } from "../users/user.entity";
 
 @Entity('settings')
 export class Settings extends AbstractEntity {
-    @Column({ type: 'enum', nullable: true, enum: Currency, default: Currency.EUR })
-    primaryCurrency?: Currency;
+    @Column({ type: 'enum', nullable: true, enum: Currency })
+    primaryCurrency?: Currency | null;
 
     @Column({ type: 'int', nullable: true })
     monthlyBudget?: number;

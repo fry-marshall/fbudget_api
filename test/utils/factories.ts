@@ -5,7 +5,6 @@ import { AccountType } from "src/modules/accounts/types";
 import { Category } from "src/modules/categories/category.entity";
 import { CategoryType } from "src/modules/categories/types";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
-import { Currency } from "src/modules/settings/types";
 import { AuthProvider } from "src/modules/users/types";
 import { User } from "src/modules/users/user.entity";
 import { DeepPartial } from "typeorm";
@@ -108,7 +107,6 @@ export const createUserAndLogin = async (
 export const createAccount = (ctx: TestContext, user: User, overrides: DeepPartial<Account> = {}): Promise<Account> => ctx.repo(Account).save({
     type: AccountType.CARD,
     name: 'Visa *4782',
-    currency: Currency.EUR,
     initialBalance: 150000,
     userId: user.id,
     ...overrides

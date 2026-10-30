@@ -1,5 +1,4 @@
 import { AccountType } from "src/modules/accounts/types";
-import { Currency } from "src/modules/settings/types";
 import request from 'supertest';
 import { resetDatabase } from "../utils/database";
 import { createAccount, createUserAndLogin, signAccessToken } from "../utils/factories";
@@ -35,7 +34,7 @@ describe('GET accounts', () => {
         it('should return the user accounts with all fields, oldest first', async () => {
             const { user, accessToken } = await createUserAndLogin(ctx)
             const card = await createAccount(ctx, user, { isPrimary: true, last4: '4782', country: 'FR' })
-            const wave = await createAccount(ctx, user, { type: AccountType.MOBILE_MONEY, operator: 'Wave', name: 'Wave', currency: Currency.XOF, initialBalance: 87350, country: 'SN' })
+            const wave = await createAccount(ctx, user, { type: AccountType.MOBILE_MONEY, operator: 'Wave', name: 'Wave', initialBalance: 87350, country: 'SN' })
 
             const response = await request(ctx.app.getHttpServer())
                 .get('/api/v1/accounts')
@@ -50,7 +49,6 @@ describe('GET accounts', () => {
                     name: 'Visa *4782',
                     last4: '4782',
                     country: 'FR',
-                    currency: Currency.EUR,
                     initialBalance: 150000,
                     isPrimary: true,
                     createdAt: card.createdAt!.toISOString(),
@@ -62,7 +60,6 @@ describe('GET accounts', () => {
                     name: 'Wave',
                     last4: null,
                     country: 'SN',
-                    currency: Currency.XOF,
                     initialBalance: 87350,
                     isPrimary: false,
                     createdAt: wave.createdAt!.toISOString(),

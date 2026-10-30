@@ -3,7 +3,6 @@ import { getRepositoryToken } from "@nestjs/typeorm";
 import { NotFoundException } from "@nestjs/common";
 import { DataSource } from "typeorm";
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
-import { Currency } from "../settings/types";
 import { User } from "../users/user.entity";
 import { Account } from "./account.entity";
 import { AccountService } from "./account.service";
@@ -36,7 +35,6 @@ describe('AccountService', () => {
         id: 'account-id',
         type: AccountType.CARD,
         name: 'Visa *4782',
-        currency: Currency.EUR,
         initialBalance: 150000,
         isPrimary: false,
         userId: 'user-id',
@@ -50,12 +48,11 @@ describe('AccountService', () => {
         name: 'Visa *4782',
         last4: null,
         country: null,
-        currency: Currency.EUR,
         initialBalance: 150000,
         isPrimary: false,
         createdAt,
     }
-    const createAccountDto = { type: AccountType.CARD, name: 'Visa *4782', currency: Currency.EUR, initialBalance: 150000 }
+    const createAccountDto = { type: AccountType.CARD, name: 'Visa *4782', initialBalance: 150000 }
 
     beforeAll(async () => {
         const moduleRef = await Test.createTestingModule({

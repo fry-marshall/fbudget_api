@@ -1,7 +1,6 @@
 import { ERRORS_MESSAGES } from "src/common/constants";
 import { Account } from "src/modules/accounts/account.entity";
 import { AccountType } from "src/modules/accounts/types";
-import { Currency } from "src/modules/settings/types";
 import { User } from "src/modules/users/user.entity";
 import request from 'supertest';
 import { Repository } from "typeorm";
@@ -19,7 +18,6 @@ describe('POST accounts', () => {
         operator: 'Wave',
         name: 'Wave perso',
         country: 'SN',
-        currency: Currency.XOF,
         initialBalance: 87350,
     }
 
@@ -56,8 +54,7 @@ describe('POST accounts', () => {
                 name: 'Wave perso',
                 last4: null,
                 country: 'SN',
-                currency: Currency.XOF,
-                initialBalance: 87350,
+                        initialBalance: 87350,
                 isPrimary: true,
                 createdAt: accountCreated!.createdAt!.toISOString(),
             })
@@ -98,7 +95,7 @@ describe('POST accounts', () => {
             const response = await request(ctx.app.getHttpServer())
                 .post('/api/v1/accounts')
                 .set('Authorization', `Bearer ${accessToken}`)
-                .send({ type: AccountType.CARD, name: 'Visa', currency: Currency.EUR, initialBalance: 0 })
+                .send({ type: AccountType.CARD, name: 'Visa', initialBalance: 0 })
 
             expect(response.statusCode).toBe(201)
             expect(response.body.data).toMatchObject({ operator: null, last4: null, country: null, initialBalance: 0 })
@@ -145,7 +142,6 @@ describe('POST accounts', () => {
         it.each([
             ['type', undefined],
             ['name', undefined],
-            ['currency', undefined],
             ['initialBalance', undefined],
             ['type', 'wallet'],
             ['type', null],
@@ -161,9 +157,6 @@ describe('POST accounts', () => {
             ['country', 'FRA'],
             ['country', 'XX'],
             ['country', 'sn'],
-            ['currency', 'usd'],
-            ['currency', 'EUR'],
-            ['currency', null],
             ['initialBalance', '1500'],
             ['initialBalance', 15.5],
             ['initialBalance', 2147483648],
@@ -187,6 +180,7 @@ describe('POST accounts', () => {
             ['userId', '00000000-0000-0000-0000-000000000000'],
             ['id', '00000000-0000-0000-0000-000000000000'],
             ['syncStatus', 'synced'],
+            ['currency', 'xof'],
         ])('should throw bad request when %s is sent', async (field, value) => {
             const { user, accessToken } = await createUserAndLogin(ctx)
 

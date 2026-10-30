@@ -12,7 +12,8 @@ export const ERRORS_MESSAGES = {
         INVALID_TOKEN: 'Refresh token is not valid',
     },
     SETTINGS: {
-        SETTINGS_NOT_FOUND: 'Settings not found'
+        SETTINGS_NOT_FOUND: 'Settings not found',
+        PRIMARY_CURRENCY_ALREADY_SET: 'Primary currency is already set and cannot be changed',
     },
     ACCOUNTS: {
         ACCOUNT_NOT_FOUND: 'Account not found'

@@ -14,7 +14,7 @@ describe('PUT users/me/settings', () => {
     let userRepository: Repository<User>;
     let settingsRepository: Repository<Settings>;
 
-    const DEFAULT_SETTINGS = { primaryCurrency: Currency.EUR, monthlyBudget: null }
+    const DEFAULT_SETTINGS = { primaryCurrency: null, monthlyBudget: null }
     const VALID_BODY = { primaryCurrency: Currency.XOF, monthlyBudget: 1500 }
 
     beforeAll(async () => {
@@ -69,6 +69,20 @@ describe('PUT users/me/settings', () => {
             expect(response.statusCode).toBe(200)
             expect(response.body.data.monthlyBudget).toBe(monthlyBudget)
             expect(await settingsRepository.findOneBy({ id: user.settings!.id })).toMatchObject({ monthlyBudget })
+        })
+
+        it('should accept the same primary currency once it is set and update the monthly budget', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            await settingsRepository.update(user.settings!.id!, { primaryCurrency: Currency.XOF, monthlyBudget: 1500 })
+
+            const response = await request(ctx.app.getHttpServer())
+                .put('/api/v1/users/me/settings')
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send({ primaryCurrency: Currency.XOF, monthlyBudget: 3000 })
+
+            expect(response.statusCode).toBe(200)
+            expect(response.body.data).toStrictEqual({ id: user.settings!.id, primaryCurrency: Currency.XOF, monthlyBudget: 3000 })
+            expect(await settingsRepository.findOneBy({ id: user.settings!.id })).toMatchObject({ primaryCurrency: Currency.XOF, monthlyBudget: 3000 })
         })
 
         it('should not expose sensitive fields', async () => {
@@ -146,6 +160,36 @@ describe('PUT users/me/settings', () => {
             expect(response.statusCode).toBe(400)
             expect(response.body.message).toBe(ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST)
             expect(await settingsRepository.findOneBy({ id: user.settings!.id })).toMatchObject(DEFAULT_SETTINGS)
+        })
+
+        it('should throw bad request and change nothing when changing an already set primary currency', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            await settingsRepository.update(user.settings!.id!, { primaryCurrency: Currency.XOF, monthlyBudget: 1500 })
+
+            const response = await request(ctx.app.getHttpServer())
+                .put('/api/v1/users/me/settings')
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send({ primaryCurrency: Currency.EUR, monthlyBudget: 3000 })
+
+            expect(response.statusCode).toBe(400)
+            expect(response.body.message).toBe(ERRORS_MESSAGES.SETTINGS.PRIMARY_CURRENCY_ALREADY_SET)
+            expect(await settingsRepository.findOneBy({ id: user.settings!.id })).toMatchObject({ primaryCurrency: Currency.XOF, monthlyBudget: 1500 })
+        })
+
+        it('should set only one primary currency when setting different currencies in parallel', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+
+            const responses = await Promise.all([Currency.EUR, Currency.XOF].map((primaryCurrency) => request(ctx.app.getHttpServer())
+                .put('/api/v1/users/me/settings')
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send({ primaryCurrency, monthlyBudget: 1500 })
+            ))
+
+            const settings = await settingsRepository.findOneBy({ id: user.settings!.id })
+            const successResponse = responses.find((response) => response.statusCode === 200)
+
+            expect(responses.map((response) => response.statusCode).sort()).toEqual([200, 400])
+            expect(settings?.primaryCurrency).toBe(successResponse!.body.data.primaryCurrency)
         })
 
         it.each([

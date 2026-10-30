@@ -1,7 +1,6 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from "typeorm";
 import { AbstractEntity } from "src/common/entities/abstract.entity";
 import { AccountType } from "./types";
-import { Currency } from "../settings/types";
 import { User } from "../users/user.entity";
 
 @Entity('accounts')
@@ -21,9 +20,6 @@ export class Account extends AbstractEntity {
 
     @Column({ type: 'varchar', length: 2, nullable: true })
     country?: string;
-
-    @Column({ type: 'enum', enum: Currency })
-    currency?: Currency;
 
     @Column({ type: 'int' })
     initialBalance?: number;

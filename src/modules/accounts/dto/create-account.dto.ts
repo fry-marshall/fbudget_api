@@ -1,7 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { IsDefined, IsEnum, IsInt, IsISO31661Alpha2, IsNotEmpty, IsOptional, IsString, Matches, Max, Min } from "class-validator";
 import { MAX_INT } from "src/common/constants";
-import { Currency } from "src/modules/settings/types";
 import { AccountType } from "../types";
 
 export class CreateAccountDto {
@@ -32,12 +31,7 @@ export class CreateAccountDto {
     @Matches(/^[A-Z]{2}$/)
     country?: string;
 
-    @ApiProperty({ enum: Currency, description: 'Cannot be changed after creation' })
-    @IsDefined()
-    @IsEnum(Currency)
-    currency?: Currency;
-
-    @ApiProperty({ example: 150000, minimum: -MAX_INT, maximum: MAX_INT, description: 'Amount in the smallest unit of the currency (cents for EUR, unit for XOF)' })
+    @ApiProperty({ example: 150000, minimum: -MAX_INT, maximum: MAX_INT, description: 'Amount in the smallest unit of the user primary currency (cents for EUR, unit for XOF)' })
     @IsDefined()
     @IsInt()
     @Min(-MAX_INT)

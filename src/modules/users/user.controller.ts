@@ -51,9 +51,9 @@ export class UserController {
 
     @Put('me/settings')
     @UseGuards(JwtGuard)
-    @ApiOperation({ summary: 'Update the connected user settings' })
+    @ApiOperation({ summary: 'Update the connected user settings, the primary currency can only be set once' })
     @ApiSuccessResponse(SettingsResponseDto)
-    @ApiBadRequestResponse({ description: ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST, type: ErrorResponse })
+    @ApiBadRequestResponse({ description: `${ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST} | ${ERRORS_MESSAGES.SETTINGS.PRIMARY_CURRENCY_ALREADY_SET}`, type: ErrorResponse })
     @ApiNotFoundResponse({ description: `${ERRORS_MESSAGES.AUTH.USER_NOT_FOUND} | ${ERRORS_MESSAGES.SETTINGS.SETTINGS_NOT_FOUND}`, type: ErrorResponse })
     updateSettings(@CurrentUser() user: PayloadJwt, @Body() updateSettingsDto: UpdateSettingsDto): Promise<SettingsResponseDto> {
         return this.userService.updateSettings(user.id!, updateSettingsDto)

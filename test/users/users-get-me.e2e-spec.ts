@@ -47,7 +47,7 @@ describe('GET users/me', () => {
                 role: UserRole.USER,
                 settings: {
                     id: user.settings!.id,
-                    primaryCurrency: Currency.EUR,
+                    primaryCurrency: null,
                     monthlyBudget: null,
                 },
                 createdAt: user.createdAt!.toISOString()

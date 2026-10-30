@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Settings } from "./settings.entity";
 import { Repository } from "typeorm";
@@ -25,7 +25,15 @@ export class SettingsService {
             throw new NotFoundException(ERRORS_MESSAGES.SETTINGS.SETTINGS_NOT_FOUND)
         }
 
-        await this.settingsRepository.update(settings.id!, { ...updateSettingsDto })
+        const result = await this.settingsRepository.createQueryBuilder()
+            .update(Settings)
+            .set({ ...updateSettingsDto })
+            .where('id = :id AND ("primaryCurrency" IS NULL OR "primaryCurrency" = :primaryCurrency)', { id: settings.id, primaryCurrency: updateSettingsDto.primaryCurrency })
+            .execute()
+
+        if (!result.affected) {
+            throw new BadRequestException(ERRORS_MESSAGES.SETTINGS.PRIMARY_CURRENCY_ALREADY_SET)
+        }
 
         settings = {
             ...settings,

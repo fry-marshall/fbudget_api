@@ -32,7 +32,7 @@ export class UpdateAccountDto {
     @Matches(/^[A-Z]{2}$/)
     country?: string;
 
-    @ApiPropertyOptional({ example: 150000, minimum: -MAX_INT, maximum: MAX_INT, description: 'Amount in the smallest unit of the currency (cents for EUR, unit for XOF)' })
+    @ApiPropertyOptional({ example: 150000, minimum: -MAX_INT, maximum: MAX_INT, description: 'Amount in the smallest unit of the user primary currency (cents for EUR, unit for XOF)' })
     @ValidateIf((_, value) => value !== undefined)
     @IsInt()
     @Min(-MAX_INT)

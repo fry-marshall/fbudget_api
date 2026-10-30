@@ -64,7 +64,7 @@ describe('PUT users/me', () => {
                 role: UserRole.USER,
                 settings: {
                     id: user.settings!.id,
-                    primaryCurrency: Currency.EUR,
+                    primaryCurrency: null,
                     monthlyBudget: null,
                 },
                 createdAt: user.createdAt!.toISOString()
@@ -157,7 +157,7 @@ describe('PUT users/me', () => {
                 role: UserRole.USER,
                 authProviders: [AuthProvider.EMAIL],
                 otpAttempts: 0,
-                settings: { primaryCurrency: Currency.EUR },
+                settings: { primaryCurrency: null },
             })
             expect((await findUserWithOtp(ctx))?.otpCode).toBeNull()
         })

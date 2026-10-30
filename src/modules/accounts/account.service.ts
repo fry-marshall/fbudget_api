@@ -105,7 +105,6 @@ export class AccountService {
             name: account.name,
             last4: account.last4 ?? null,
             country: account.country ?? null,
-            currency: account.currency,
             initialBalance: account.initialBalance,
             isPrimary: account.isPrimary,
             createdAt: account.createdAt,

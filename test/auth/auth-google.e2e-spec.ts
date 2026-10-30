@@ -1,6 +1,5 @@
 import { BadRequestException } from "@nestjs/common"
 import { GoogleService } from "src/common/services/google.service";
-import { Currency } from "src/modules/settings/types";
 import { AuthProvider } from "src/modules/users/types";
 import { User } from "src/modules/users/user.entity";
 import request from 'supertest';
@@ -65,7 +64,7 @@ describe("POST auth/google", () => {
             expect(user?.email).toBe(userEmail)
             expect(user?.authProviders).toContain(AuthProvider.GOOGLE)
             expect(user?.settings?.monthlyBudget).toBeFalsy()
-            expect(user?.settings?.primaryCurrency).toBe(Currency.EUR)
+            expect(user?.settings?.primaryCurrency).toBeNull()
         })
 
         it('should return 201 when user signed up successfully when user already signup as with email provider', async () => {
@@ -105,7 +104,7 @@ describe("POST auth/google", () => {
             expect(user?.authProviders).toContain(AuthProvider.GOOGLE)
             expect(user?.authProviders).toContain(AuthProvider.EMAIL)
             expect(user?.settings?.monthlyBudget).toBeFalsy()
-            expect(user?.settings?.primaryCurrency).toBe(Currency.EUR)
+            expect(user?.settings?.primaryCurrency).toBeNull()
         })
     })
 

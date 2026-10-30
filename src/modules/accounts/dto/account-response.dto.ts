@@ -1,5 +1,4 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { Currency } from "src/modules/settings/types";
 import { AccountType } from "../types";
 
 export class AccountResponseDto {
@@ -21,10 +20,7 @@ export class AccountResponseDto {
     @ApiProperty({ example: 'SN', nullable: true })
     country?: string | null;
 
-    @ApiProperty({ enum: Currency })
-    currency?: Currency;
-
-    @ApiProperty({ example: 150000, description: 'Amount in the smallest unit of the currency (cents for EUR, unit for XOF)' })
+    @ApiProperty({ example: 150000, description: 'Amount in the smallest unit of the user primary currency (cents for EUR, unit for XOF)' })
     initialBalance?: number;
 
     @ApiProperty()

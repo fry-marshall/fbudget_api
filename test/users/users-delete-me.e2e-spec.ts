@@ -4,7 +4,6 @@ import { CategoryType } from "src/modules/categories/types";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
 import { Settings } from "src/modules/settings/settings.entity";
 import { AccountType } from "src/modules/accounts/types";
-import { Currency } from "src/modules/settings/types";
 import { AuthProvider } from "src/modules/users/types";
 import { User } from "src/modules/users/user.entity";
 import { Repository } from "typeorm";
@@ -60,7 +59,7 @@ describe('DELETE users/me', () => {
         it('should permanently delete the user rows in database', async () => {
             const { user, accessToken } = await createUserAndLogin(ctx)
             await createAccount(ctx, user, { isPrimary: true })
-            await createAccount(ctx, user, { type: AccountType.MOBILE_MONEY, name: 'Wave', currency: Currency.XOF })
+            await createAccount(ctx, user, { type: AccountType.MOBILE_MONEY, name: 'Wave' })
             await createCategory(ctx, user, { envelopeBudget: 14000 })
             await createCategory(ctx, user, { type: CategoryType.OTHER, label: 'Netflix' })
 

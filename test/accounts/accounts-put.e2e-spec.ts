@@ -1,7 +1,6 @@
 import { ERRORS_MESSAGES } from "src/common/constants";
 import { Account } from "src/modules/accounts/account.entity";
 import { AccountType } from "src/modules/accounts/types";
-import { Currency } from "src/modules/settings/types";
 import request from 'supertest';
 import { Repository } from "typeorm";
 import { resetDatabase } from "../utils/database";
@@ -13,7 +12,7 @@ describe('PUT accounts/:id', () => {
     let accountRepository: Repository<Account>;
 
     const UNKNOWN_ID = '00000000-0000-0000-0000-000000000000'
-    const ACCOUNT_DEFAULTS = { type: AccountType.CARD, operator: null, name: 'Visa *4782', last4: null, country: null, currency: Currency.EUR, initialBalance: 150000 }
+    const ACCOUNT_DEFAULTS = { type: AccountType.CARD, operator: null, name: 'Visa *4782', last4: null, country: null, initialBalance: 150000 }
 
     beforeAll(async () => {
         ctx = await createTestApp()
@@ -43,11 +42,10 @@ describe('PUT accounts/:id', () => {
             expect(response.body.data).toStrictEqual({
                 id: account.id,
                 ...body,
-                currency: Currency.EUR,
                 isPrimary: true,
                 createdAt: account.createdAt!.toISOString(),
             })
-            expect(await accountRepository.findOneBy({ id: account.id })).toMatchObject({ ...body, currency: Currency.EUR, isPrimary: true })
+            expect(await accountRepository.findOneBy({ id: account.id })).toMatchObject({ ...body, isPrimary: true })
         })
 
         it.each([
@@ -129,7 +127,7 @@ describe('PUT accounts/:id', () => {
         })
 
         it.each([
-            ['currency', Currency.XOF],
+            ['currency', 'xof'],
             ['isPrimary', true],
             ['userId', '00000000-0000-0000-0000-000000000000'],
             ['id', '00000000-0000-0000-0000-000000000000'],
