@@ -5,6 +5,7 @@ import { Settings } from "../settings/settings.entity";
 import { RefreshToken } from "../refresh-tokens/refresh-token.entity";
 import { Account } from "../accounts/account.entity";
 import { Category } from "../categories/category.entity";
+import { Income } from "../incomes/income.entity";
 
 @Entity('users')
 @Index('UQ_users_email', ['email'], { unique: true })
@@ -50,4 +51,7 @@ export class User extends AbstractEntity {
 
     @OneToMany(() => Category, (category) => category.user)
     categories?: Category[]
+
+    @OneToMany(() => Income, (income) => income.user)
+    incomes?: Income[]
 }

@@ -12,4 +12,7 @@ export const SUCCESS_MESSAGES = {
     CATEGORY: {
         CATEGORY_DELETED: 'Category deleted successfully'
     },
+    INCOME: {
+        INCOME_DELETED: 'Income deleted successfully'
+    },
 }

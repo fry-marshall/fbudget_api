@@ -1,6 +1,7 @@
 import { Account } from "src/modules/accounts/account.entity";
 import { Category } from "src/modules/categories/category.entity";
 import { CategoryType } from "src/modules/categories/types";
+import { Income } from "src/modules/incomes/income.entity";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
 import { Settings } from "src/modules/settings/settings.entity";
 import { AccountType } from "src/modules/accounts/types";
@@ -10,7 +11,7 @@ import { Repository } from "typeorm";
 import request from 'supertest'
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { resetDatabase } from "../utils/database";
-import { createAccount, createCategory, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { createAccount, createCategory, createIncome, createUserAndLogin, signAccessToken } from "../utils/factories";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('DELETE users/me', () => {
@@ -20,6 +21,7 @@ describe('DELETE users/me', () => {
     let settingsRepository: Repository<Settings>;
     let accountRepository: Repository<Account>;
     let categoryRepository: Repository<Category>;
+    let incomeRepository: Repository<Income>;
 
     beforeAll(async () => {
         ctx = await createTestApp()
@@ -28,6 +30,7 @@ describe('DELETE users/me', () => {
         settingsRepository = ctx.repo(Settings)
         accountRepository = ctx.repo(Account)
         categoryRepository = ctx.repo(Category)
+        incomeRepository = ctx.repo(Income)
     })
 
     beforeEach(async () => {
@@ -62,6 +65,7 @@ describe('DELETE users/me', () => {
             await createAccount(ctx, user, { type: AccountType.MOBILE_MONEY, name: 'Wave' })
             await createCategory(ctx, user, { envelopeBudget: 14000 })
             await createCategory(ctx, user, { type: CategoryType.OTHER, label: 'Netflix' })
+            await createIncome(ctx, user)
 
             await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
@@ -74,6 +78,7 @@ describe('DELETE users/me', () => {
             expect(await refreshTokenRepository.count()).toEqual(0)
             expect(await accountRepository.count()).toEqual(0)
             expect(await categoryRepository.count()).toEqual(0)
+            expect(await incomeRepository.count()).toEqual(0)
         })
 
         it('should keep the data of other users', async () => {
@@ -81,6 +86,7 @@ describe('DELETE users/me', () => {
             const { user: otherUser } = await createUserAndLogin(ctx, { email: 'other@gmail.com' })
             await createAccount(ctx, otherUser)
             await createCategory(ctx, otherUser)
+            await createIncome(ctx, otherUser)
 
             await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
@@ -91,6 +97,7 @@ describe('DELETE users/me', () => {
             expect(await refreshTokenRepository.count({ where: { user: { id: otherUser.id } } })).toEqual(1)
             expect(await accountRepository.countBy({ userId: otherUser.id })).toEqual(1)
             expect(await categoryRepository.countBy({ userId: otherUser.id })).toEqual(1)
+            expect(await incomeRepository.countBy({ userId: otherUser.id })).toEqual(1)
         })
 
         it('should allow to sign up again with the email of a deleted user', async () => {

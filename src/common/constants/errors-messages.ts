@@ -21,5 +21,8 @@ export const ERRORS_MESSAGES = {
     CATEGORIES: {
         CATEGORY_NOT_FOUND: 'Category not found',
         CATEGORY_ALREADY_EXISTS: 'A category with this type already exists',
+    },
+    INCOMES: {
+        INCOME_NOT_FOUND: 'Income not found'
     }
 }

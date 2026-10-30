@@ -1,10 +1,11 @@
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { Account } from "src/modules/accounts/account.entity";
+import { Income } from "src/modules/incomes/income.entity";
 import { User } from "src/modules/users/user.entity";
 import request from 'supertest';
 import { Repository } from "typeorm";
 import { resetDatabase } from "../utils/database";
-import { createAccount, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { createAccount, createIncome, createUserAndLogin, signAccessToken } from "../utils/factories";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('DELETE accounts/:id', () => {
@@ -41,6 +42,19 @@ describe('DELETE accounts/:id', () => {
             expect(response.body.data.message).toBe(SUCCESS_MESSAGES.ACCOUNT.ACCOUNT_DELETED)
             expect(await accountRepository.findOneBy({ id: account.id })).toBeNull()
             expect(await userRepository.findOneBy({ id: user.id })).not.toBeNull()
+        })
+
+        it('should keep the incomes of the account without account', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const account = await createAccount(ctx, user)
+            const income = await createIncome(ctx, user, { accountId: account.id })
+
+            const response = await request(ctx.app.getHttpServer())
+                .delete(`/api/v1/accounts/${account.id}`)
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            expect(response.statusCode).toBe(200)
+            expect(await ctx.repo(Income).findOneBy({ id: income.id })).toMatchObject({ accountId: null, label: 'Salaire' })
         })
 
         it('should keep the primary account when deleting a secondary account', async () => {

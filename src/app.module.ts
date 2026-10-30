@@ -10,6 +10,7 @@ import { JwtStrategy } from './common/strategies/jwt.strategy';
 import { UserModule } from './modules/users/user.module';
 import { AccountModule } from './modules/accounts/account.module';
 import { CategoryModule } from './modules/categories/category.module';
+import { IncomeModule } from './modules/incomes/income.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ERRORS_MESSAGES } from './common/constants';
 
@@ -51,6 +52,7 @@ import { ERRORS_MESSAGES } from './common/constants';
     UserModule,
     AccountModule,
     CategoryModule,
+    IncomeModule,
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
