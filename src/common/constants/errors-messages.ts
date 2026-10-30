@@ -24,5 +24,8 @@ export const ERRORS_MESSAGES = {
     },
     INCOMES: {
         INCOME_NOT_FOUND: 'Income not found'
+    },
+    FIXED_CHARGES: {
+        FIXED_CHARGE_NOT_FOUND: 'Fixed charge not found'
     }
 }

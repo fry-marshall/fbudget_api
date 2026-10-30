@@ -1,11 +1,12 @@
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { Account } from "src/modules/accounts/account.entity";
 import { Income } from "src/modules/incomes/income.entity";
+import { FixedCharge } from "src/modules/fixed-charges/fixed-charge.entity";
 import { User } from "src/modules/users/user.entity";
 import request from 'supertest';
 import { Repository } from "typeorm";
 import { resetDatabase } from "../utils/database";
-import { createAccount, createIncome, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { createAccount, createFixedCharge, createIncome, createUserAndLogin, signAccessToken } from "../utils/factories";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('DELETE accounts/:id', () => {
@@ -55,6 +56,19 @@ describe('DELETE accounts/:id', () => {
 
             expect(response.statusCode).toBe(200)
             expect(await ctx.repo(Income).findOneBy({ id: income.id })).toMatchObject({ accountId: null, label: 'Salaire' })
+        })
+
+        it('should keep the fixed charges of the account without account', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const account = await createAccount(ctx, user)
+            const fixedCharge = await createFixedCharge(ctx, user, { accountId: account.id })
+
+            const response = await request(ctx.app.getHttpServer())
+                .delete(`/api/v1/accounts/${account.id}`)
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            expect(response.statusCode).toBe(200)
+            expect(await ctx.repo(FixedCharge).findOneBy({ id: fixedCharge.id })).toMatchObject({ accountId: null, label: 'Loyer' })
         })
 
         it('should keep the primary account when deleting a secondary account', async () => {

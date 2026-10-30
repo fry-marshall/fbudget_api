@@ -15,4 +15,7 @@ export const SUCCESS_MESSAGES = {
     INCOME: {
         INCOME_DELETED: 'Income deleted successfully'
     },
+    FIXED_CHARGE: {
+        FIXED_CHARGE_DELETED: 'Fixed charge deleted successfully'
+    },
 }

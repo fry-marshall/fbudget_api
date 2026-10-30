@@ -5,6 +5,7 @@ import { AccountType } from "src/modules/accounts/types";
 import { Category } from "src/modules/categories/category.entity";
 import { CategoryType } from "src/modules/categories/types";
 import { Income } from "src/modules/incomes/income.entity";
+import { FixedCharge } from "src/modules/fixed-charges/fixed-charge.entity";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
 import { AuthProvider } from "src/modules/users/types";
 import { User } from "src/modules/users/user.entity";
@@ -122,6 +123,14 @@ export const createCategory = (ctx: TestContext, user: User, overrides: DeepPart
 export const createIncome = (ctx: TestContext, user: User, overrides: DeepPartial<Income> = {}): Promise<Income> => ctx.repo(Income).save({
     label: 'Salaire',
     amount: 248000,
+    userId: user.id,
+    ...overrides
+})
+
+export const createFixedCharge = (ctx: TestContext, user: User, overrides: DeepPartial<FixedCharge> = {}): Promise<FixedCharge> => ctx.repo(FixedCharge).save({
+    label: 'Loyer',
+    amount: 85000,
+    dayOfMonth: 5,
     userId: user.id,
     ...overrides
 })

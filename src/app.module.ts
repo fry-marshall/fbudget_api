@@ -11,6 +11,7 @@ import { UserModule } from './modules/users/user.module';
 import { AccountModule } from './modules/accounts/account.module';
 import { CategoryModule } from './modules/categories/category.module';
 import { IncomeModule } from './modules/incomes/income.module';
+import { FixedChargeModule } from './modules/fixed-charges/fixed-charge.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ERRORS_MESSAGES } from './common/constants';
 
@@ -53,6 +54,7 @@ import { ERRORS_MESSAGES } from './common/constants';
     AccountModule,
     CategoryModule,
     IncomeModule,
+    FixedChargeModule,
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
