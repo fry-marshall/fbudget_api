@@ -27,5 +27,8 @@ export const ERRORS_MESSAGES = {
     },
     FIXED_CHARGES: {
         FIXED_CHARGE_NOT_FOUND: 'Fixed charge not found'
+    },
+    TRANSACTIONS: {
+        TRANSACTION_NOT_FOUND: 'Transaction not found'
     }
 }

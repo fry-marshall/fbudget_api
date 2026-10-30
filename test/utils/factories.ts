@@ -6,6 +6,7 @@ import { Category } from "src/modules/categories/category.entity";
 import { CategoryType } from "src/modules/categories/types";
 import { Income } from "src/modules/incomes/income.entity";
 import { FixedCharge } from "src/modules/fixed-charges/fixed-charge.entity";
+import { Transaction } from "src/modules/transactions/transaction.entity";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
 import { AuthProvider } from "src/modules/users/types";
 import { User } from "src/modules/users/user.entity";
@@ -131,6 +132,14 @@ export const createFixedCharge = (ctx: TestContext, user: User, overrides: DeepP
     label: 'Loyer',
     amount: 85000,
     dayOfMonth: 5,
+    userId: user.id,
+    ...overrides
+})
+
+export const createTransaction = (ctx: TestContext, user: User, account: Account, overrides: DeepPartial<Transaction> = {}): Promise<Transaction> => ctx.repo(Transaction).save({
+    amount: -4250,
+    occurredOn: '2026-10-15',
+    accountId: account.id,
     userId: user.id,
     ...overrides
 })

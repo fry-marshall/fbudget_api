@@ -7,6 +7,8 @@ import { Account } from "./account.entity";
 import { AccountResponseDto } from "./dto/account-response.dto";
 import { CreateAccountDto } from "./dto/create-account.dto";
 import { UpdateAccountDto } from "./dto/update-account.dto";
+import { AccountBalanceResponseDto } from "./dto/account-balance-response.dto";
+import { Transaction } from "../transactions/transaction.entity";
 
 @Injectable()
 export class AccountService {
@@ -14,6 +16,8 @@ export class AccountService {
     constructor(
         @InjectRepository(Account)
         private accountRepository: Repository<Account>,
+        @InjectRepository(Transaction)
+        private transactionRepository: Repository<Transaction>,
         private dataSource: DataSource
     ) { }
 
@@ -44,6 +48,21 @@ export class AccountService {
         await this.accountRepository.update(account.id!, { ...updateAccountDto })
 
         return this.toDto((await this.accountRepository.findOneBy({ id: account.id }))!)
+    }
+
+    async getBalance(userId: string, accountId: string): Promise<AccountBalanceResponseDto> {
+        const account = await this.findUserAccount(this.accountRepository.manager, userId, accountId)
+
+        const { total } = (await this.transactionRepository.createQueryBuilder('transaction')
+            .select('COALESCE(SUM(transaction.amount), 0)', 'total')
+            .where('transaction.accountId = :accountId', { accountId: account.id })
+            .getRawOne<{ total: string }>())!
+
+        return {
+            accountId: account.id,
+            initialBalance: account.initialBalance,
+            balance: account.initialBalance! + Number(total),
+        }
     }
 
     async setPrimary(userId: string, accountId: string): Promise<AccountResponseDto> {

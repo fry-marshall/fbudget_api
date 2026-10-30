@@ -10,6 +10,7 @@ import { AccountService } from "./account.service";
 import { AccountResponseDto } from "./dto/account-response.dto";
 import { CreateAccountDto } from "./dto/create-account.dto";
 import { UpdateAccountDto } from "./dto/update-account.dto";
+import { AccountBalanceResponseDto } from "./dto/account-balance-response.dto";
 import { MessageResponseDto } from "src/common/dto/message-response.dto";
 
 @ApiTags('accounts')
@@ -27,6 +28,15 @@ export class AccountController {
     @ApiSuccessArrayResponse(AccountResponseDto)
     findAll(@CurrentUser() user: PayloadJwt): Promise<AccountResponseDto[]> {
         return this.accountService.findAll(user.id!)
+    }
+
+    @Get(':id/balance')
+    @ApiOperation({ summary: 'Get the current balance of an account: initial balance plus the signed transaction amounts' })
+    @ApiSuccessResponse(AccountBalanceResponseDto)
+    @ApiBadRequestResponse({ description: ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST, type: ErrorResponse })
+    @ApiNotFoundResponse({ description: ERRORS_MESSAGES.ACCOUNTS.ACCOUNT_NOT_FOUND, type: ErrorResponse })
+    getBalance(@CurrentUser() user: PayloadJwt, @Param('id', UuidParamPipe) id: string): Promise<AccountBalanceResponseDto> {
+        return this.accountService.getBalance(user.id!, id)
     }
 
     @Post()

@@ -18,4 +18,7 @@ export const SUCCESS_MESSAGES = {
     FIXED_CHARGE: {
         FIXED_CHARGE_DELETED: 'Fixed charge deleted successfully'
     },
+    TRANSACTION: {
+        TRANSACTION_DELETED: 'Transaction deleted successfully'
+    },
 }

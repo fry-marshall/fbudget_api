@@ -7,6 +7,7 @@ import { User } from "../users/user.entity";
 import { Account } from "./account.entity";
 import { AccountService } from "./account.service";
 import { AccountType } from "./types";
+import { Transaction } from "../transactions/transaction.entity";
 
 describe('AccountService', () => {
 
@@ -23,6 +24,9 @@ describe('AccountService', () => {
         findOneBy: jest.fn(),
         update: jest.fn(),
         manager: managerMocked,
+    };
+    let transactionRepositoryMocked = {
+        createQueryBuilder: jest.fn(),
     };
     let dataSourceMocked = {
         transaction: jest.fn((callback) => callback(managerMocked)),
@@ -59,6 +63,7 @@ describe('AccountService', () => {
             providers: [
                 AccountService,
                 { provide: getRepositoryToken(Account), useValue: accountRepositoryMocked },
+                { provide: getRepositoryToken(Transaction), useValue: transactionRepositoryMocked },
                 { provide: DataSource, useValue: dataSourceMocked },
             ]
         }).compile()
@@ -164,6 +169,49 @@ describe('AccountService', () => {
                 accountRepositoryMocked.update = jest.fn().mockRejectedValue(new Error('An error has occured'))
 
                 await expect(accountService.update('user-id', 'account-id', { name: 'Renamed' })).rejects.toThrow(new Error('An error has occured'))
+            })
+        })
+    })
+
+    describe('getBalance', () => {
+        const mockTransactionsTotal = (total: string) => {
+            const queryBuilder = {
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                getRawOne: jest.fn().mockResolvedValue({ total }),
+            }
+            transactionRepositoryMocked.createQueryBuilder.mockReturnValueOnce(queryBuilder)
+            return queryBuilder
+        }
+
+        describe('Success cases', () => {
+            it('should add the signed transactions total to the initial balance', async () => {
+                managerMocked.findOne.mockResolvedValueOnce(accountMocked)
+                const queryBuilder = mockTransactionsTotal('-42500')
+
+                const response = await accountService.getBalance('user-id', 'account-id')
+
+                expect(response).toStrictEqual({ accountId: 'account-id', initialBalance: 150000, balance: 107500 })
+                expect(managerMocked.findOne).toHaveBeenCalledWith(Account, { where: { id: 'account-id', userId: 'user-id' } })
+                expect(queryBuilder.where).toHaveBeenCalledWith('transaction.accountId = :accountId', { accountId: 'account-id' })
+            })
+
+            it('should return the initial balance when the account has no transaction', async () => {
+                managerMocked.findOne.mockResolvedValueOnce(accountMocked)
+                mockTransactionsTotal('0')
+
+                const response = await accountService.getBalance('user-id', 'account-id')
+
+                expect(response.balance).toBe(150000)
+            })
+        })
+
+        describe('Failure cases', () => {
+            it('should throw NotFoundException when account doesn\'t belong to the user', async () => {
+                managerMocked.findOne.mockResolvedValueOnce(null)
+
+                await expect(accountService.getBalance('user-id', 'account-id')).rejects.toThrow(new NotFoundException(ERRORS_MESSAGES.ACCOUNTS.ACCOUNT_NOT_FOUND))
+                expect(transactionRepositoryMocked.createQueryBuilder).not.toHaveBeenCalled()
             })
         })
     })

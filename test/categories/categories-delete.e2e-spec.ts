@@ -2,10 +2,11 @@ import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { Category } from "src/modules/categories/category.entity";
 import { CategoryType } from "src/modules/categories/types";
 import { FixedCharge } from "src/modules/fixed-charges/fixed-charge.entity";
+import { Transaction } from "src/modules/transactions/transaction.entity";
 import request from 'supertest';
 import { Repository } from "typeorm";
 import { resetDatabase } from "../utils/database";
-import { createCategory, createFixedCharge, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { createAccount, createCategory, createFixedCharge, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('DELETE categories/:id', () => {
@@ -54,6 +55,20 @@ describe('DELETE categories/:id', () => {
 
             expect(response.statusCode).toBe(200)
             expect(await ctx.repo(FixedCharge).findOneBy({ id: fixedCharge.id })).toMatchObject({ categoryId: null, label: 'Loyer' })
+        })
+
+        it('should keep the transactions of the category without category', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const account = await createAccount(ctx, user)
+            const category = await createCategory(ctx, user)
+            const transaction = await createTransaction(ctx, user, account, { categoryId: category.id })
+
+            const response = await request(ctx.app.getHttpServer())
+                .delete(`/api/v1/categories/${category.id}`)
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            expect(response.statusCode).toBe(200)
+            expect(await ctx.repo(Transaction).findOneBy({ id: transaction.id })).toMatchObject({ categoryId: null, amount: -4250 })
         })
 
         it('should allow to create again a category of the deleted type', async () => {
