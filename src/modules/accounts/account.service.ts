@@ -9,6 +9,7 @@ import { CreateAccountDto } from "./dto/create-account.dto";
 import { UpdateAccountDto } from "./dto/update-account.dto";
 import { AccountBalanceResponseDto } from "./dto/account-balance-response.dto";
 import { Transaction } from "../transactions/transaction.entity";
+import { TransactionStatus } from "../transactions/types";
 
 @Injectable()
 export class AccountService {
@@ -56,6 +57,7 @@ export class AccountService {
         const { total } = (await this.transactionRepository.createQueryBuilder('transaction')
             .select('COALESCE(SUM(transaction.amount), 0)', 'total')
             .where('transaction.accountId = :accountId', { accountId: account.id })
+            .andWhere('transaction.status = :status', { status: TransactionStatus.CONFIRMED })
             .getRawOne<{ total: string }>())!
 
         return {

@@ -1,6 +1,6 @@
 import { addMonthsToDate } from "src/common/helpers/helpers";
 import { Account } from "src/modules/accounts/account.entity";
-import { TransactionSourceType } from "src/modules/transactions/types";
+import { TransactionSourceType, TransactionStatus } from "src/modules/transactions/types";
 import request from 'supertest';
 import { resetDatabase } from "../utils/database";
 import { createAccount, createSavingsGoal, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
@@ -58,6 +58,7 @@ describe('GET savings-goals', () => {
                     monthlyContribution: 20000,
                     targetAmount: 300000,
                     targetDate: '2027-10-01',
+                    dayOfMonth: null,
                     hasGoal: true,
                     currentAmount: 120000,
                     progressPct: 40,
@@ -71,6 +72,7 @@ describe('GET savings-goals', () => {
                     monthlyContribution: 5000,
                     targetAmount: null,
                     targetDate: null,
+                    dayOfMonth: null,
                     hasGoal: false,
                     currentAmount: 5000,
                     progressPct: null,
@@ -92,6 +94,21 @@ describe('GET savings-goals', () => {
                 .set('Authorization', `Bearer ${accessToken}`)
 
             expect(response.body.data[0]).toMatchObject({ currentAmount: 310000, progressPct: 100, projectedMonth: null })
+        })
+
+        it('should not count the pending contributions', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const account = await createAccount(ctx, user)
+            const goal = await createSavingsGoal(ctx, user)
+            const contribution = { sourceType: TransactionSourceType.SAVINGS, savingsGoalId: goal.id }
+            await createTransaction(ctx, user, account, { ...contribution, amount: -20000 })
+            await createTransaction(ctx, user, account, { ...contribution, amount: -20000, status: TransactionStatus.PENDING })
+
+            const response = await request(ctx.app.getHttpServer())
+                .get('/api/v1/savings-goals')
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            expect(response.body.data[0]).toMatchObject({ currentAmount: 20000 })
         })
 
         it('should still count the contributions made from a deleted account', async () => {

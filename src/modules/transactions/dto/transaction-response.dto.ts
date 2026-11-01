@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { TransactionSourceType } from "../types";
+import { TransactionSourceType, TransactionStatus } from "../types";
 
 export class TransactionResponseDto {
     @ApiProperty({ format: 'uuid' })
@@ -29,6 +29,9 @@ export class TransactionResponseDto {
     @ApiProperty({ enum: TransactionSourceType })
     sourceType?: TransactionSourceType;
 
+    @ApiProperty({ enum: TransactionStatus, description: 'pending when generated for the month and waiting for the user validation, only the confirmed transactions change the balances' })
+    status?: TransactionStatus;
+
     @ApiProperty({ format: 'uuid', nullable: true, description: 'Provision settled by this transaction' })
     provisionId?: string | null;
 
@@ -40,6 +43,12 @@ export class TransactionResponseDto {
 
     @ApiProperty({ format: 'uuid', nullable: true, description: 'Shared by the two transactions of a transfer: the debit of the source account and the credit of the destination account' })
     transferId?: string | null;
+
+    @ApiProperty({ format: 'uuid', nullable: true, description: 'Fixed charge this transaction was generated from' })
+    fixedChargeId?: string | null;
+
+    @ApiProperty({ format: 'uuid', nullable: true, description: 'Income this transaction was generated from' })
+    incomeId?: string | null;
 
     @ApiProperty()
     createdAt?: Date;

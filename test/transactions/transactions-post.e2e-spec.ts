@@ -1,7 +1,7 @@
 import { ERRORS_MESSAGES } from "src/common/constants";
 import { Account } from "src/modules/accounts/account.entity";
 import { Transaction } from "src/modules/transactions/transaction.entity";
-import { TransactionSourceType } from "src/modules/transactions/types";
+import { TransactionSourceType, TransactionStatus } from "src/modules/transactions/types";
 import { User } from "src/modules/users/user.entity";
 import request from 'supertest';
 import { Repository } from "typeorm";
@@ -54,6 +54,9 @@ describe('POST transactions', () => {
                 installmentId: null,
                 savingsGoalId: null,
                 transferId: null,
+                fixedChargeId: null,
+                incomeId: null,
+                status: TransactionStatus.CONFIRMED,
                 createdAt: transactionCreated!.createdAt!.toISOString(),
             })
             expect(transactionCreated).toMatchObject({ ...body, sourceType: TransactionSourceType.MANUAL })
@@ -134,6 +137,10 @@ describe('POST transactions', () => {
             ['savingsGoalId', '00000000-0000-0000-0000-000000000000'],
             ['transferId', '00000000-0000-0000-0000-000000000000'],
             ['sourceType', TransactionSourceType.TRANSFER],
+            ['status', TransactionStatus.PENDING],
+            ['status', TransactionStatus.CONFIRMED],
+            ['fixedChargeId', '00000000-0000-0000-0000-000000000000'],
+            ['incomeId', '00000000-0000-0000-0000-000000000000'],
             ['userId', UNKNOWN_ID],
             ['id', UNKNOWN_ID],
         ])('should throw bad request when %s is %p', async (field, value) => {

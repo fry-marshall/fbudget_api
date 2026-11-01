@@ -2,10 +2,12 @@ import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { Account } from "src/modules/accounts/account.entity";
 import { Category } from "src/modules/categories/category.entity";
 import { FixedCharge } from "src/modules/fixed-charges/fixed-charge.entity";
+import { Transaction } from "src/modules/transactions/transaction.entity";
+import { TransactionSourceType } from "src/modules/transactions/types";
 import request from 'supertest';
 import { Repository } from "typeorm";
 import { resetDatabase } from "../utils/database";
-import { createAccount, createCategory, createFixedCharge, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { createAccount, createCategory, createFixedCharge, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('DELETE fixed-charges/:id', () => {
@@ -45,6 +47,19 @@ describe('DELETE fixed-charges/:id', () => {
             expect(await fixedChargeRepository.findOneBy({ id: otherFixedCharge.id })).not.toBeNull()
             expect(await ctx.repo(Account).findOneBy({ id: account.id })).not.toBeNull()
             expect(await ctx.repo(Category).findOneBy({ id: category.id })).not.toBeNull()
+        })
+
+        it('should keep its transactions without fixed charge', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const account = await createAccount(ctx, user)
+            const fixedCharge = await createFixedCharge(ctx, user, { accountId: account.id })
+            const transaction = await createTransaction(ctx, user, account, { amount: -85000, sourceType: TransactionSourceType.FIXED_CHARGE, fixedChargeId: fixedCharge.id })
+
+            await request(ctx.app.getHttpServer())
+                .delete(`/api/v1/fixed-charges/${fixedCharge.id}`)
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            expect(await ctx.repo(Transaction).findOneBy({ id: transaction.id })).toMatchObject({ fixedChargeId: null, amount: -85000, sourceType: TransactionSourceType.FIXED_CHARGE })
         })
     })
 

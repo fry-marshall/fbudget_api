@@ -1,6 +1,7 @@
 import { ERRORS_MESSAGES } from "src/common/constants";
 import { InstallmentPlanStatus, InstallmentStatus } from "src/modules/installment-plans/types";
 import { Transaction } from "src/modules/transactions/transaction.entity";
+import { TransactionStatus } from "src/modules/transactions/types";
 import request from 'supertest';
 import { resetDatabase } from "../utils/database";
 import { createAccount, createInstallmentPlan, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
@@ -46,6 +47,23 @@ describe('GET installment-plans/:id/installments', () => {
                 { id: plan.installments[3].id, index: 4, dueDate: '2020-04-15', amount: 18750, status: InstallmentStatus.DUE, transactionId: null, paidOn: null },
             ])
             expect(futureResponse.body.data.map((installment) => installment.status)).toEqual(Array(4).fill(InstallmentStatus.FUTURE))
+        })
+
+        it('should leave an installment due while its payment transaction is pending', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const account = await createAccount(ctx, user)
+            const plan = await createInstallmentPlan(ctx, user, { firstDueDate: '2020-01-15' })
+            await createTransaction(ctx, user, account, { amount: -18750, installmentId: plan.installments[0].id, status: TransactionStatus.PENDING })
+
+            const response = await request(ctx.app.getHttpServer())
+                .get(`/api/v1/installment-plans/${plan.id}/installments`)
+                .set('Authorization', `Bearer ${accessToken}`)
+            const planResponse = await request(ctx.app.getHttpServer())
+                .get('/api/v1/installment-plans')
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            expect(response.body.data[0]).toMatchObject({ status: InstallmentStatus.DUE, transactionId: null, paidOn: null })
+            expect(planResponse.body.data[0]).toMatchObject({ paidCount: 0, remainingDue: 75000 })
         })
 
         it('should make an installment unpaid again when its payment transaction is deleted', async () => {

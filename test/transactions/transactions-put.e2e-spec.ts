@@ -1,6 +1,6 @@
 import { ERRORS_MESSAGES } from "src/common/constants";
 import { Transaction } from "src/modules/transactions/transaction.entity";
-import { TransactionSourceType } from "src/modules/transactions/types";
+import { TransactionSourceType, TransactionStatus } from "src/modules/transactions/types";
 import request from 'supertest';
 import { Repository } from "typeorm";
 import { resetDatabase } from "../utils/database";
@@ -50,6 +50,9 @@ describe('PUT transactions/:id', () => {
                 installmentId: null,
                 savingsGoalId: null,
                 transferId: null,
+                fixedChargeId: null,
+                incomeId: null,
+                status: TransactionStatus.CONFIRMED,
                 createdAt: transaction.createdAt!.toISOString(),
             })
             expect(await transactionRepository.findOneBy({ id: transaction.id })).toMatchObject(body)
@@ -163,6 +166,9 @@ describe('PUT transactions/:id', () => {
             ['installmentId', UNKNOWN_ID],
             ['savingsGoalId', UNKNOWN_ID],
             ['transferId', UNKNOWN_ID],
+            ['status', TransactionStatus.PENDING],
+            ['fixedChargeId', UNKNOWN_ID],
+            ['incomeId', UNKNOWN_ID],
             ['userId', UNKNOWN_ID],
             ['id', UNKNOWN_ID],
         ])('should throw bad request when %s is %p', async (field, value) => {

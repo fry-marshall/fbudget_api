@@ -40,6 +40,10 @@ export class Provision extends AbstractEntity {
     @JoinColumn({ name: 'categoryId' })
     category?: Category | null;
 
+    // Last month (YYYY-MM) whose pending monthly transfer was generated, the payment is generated from nextDueDate
+    @Column({ type: 'varchar', length: 7, nullable: true })
+    lastGeneratedMonth?: string | null;
+
     @Column()
     userId?: string;
 

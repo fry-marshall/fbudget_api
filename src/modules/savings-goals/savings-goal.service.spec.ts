@@ -4,7 +4,7 @@ import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { Account } from "../accounts/account.entity";
 import { Transaction } from "../transactions/transaction.entity";
-import { TransactionSourceType } from "../transactions/types";
+import { TransactionSourceType, TransactionStatus } from "../transactions/types";
 import { SavingsGoal } from "./savings-goal.entity";
 import { SavingsGoalService } from "./savings-goal.service";
 
@@ -93,6 +93,7 @@ describe('SavingsGoalService', () => {
                     { id: 'livret-id', hasGoal: false, currentAmount: 0, progressPct: null, projectedMonth: null, targetAmount: null, targetDate: null, accountId: null },
                 ])
                 expect(queryBuilderMocked.andWhere).toHaveBeenCalledWith('transaction.savingsGoalId IN (:...savingsGoalIds)', { savingsGoalIds: ['savings-goal-id', 'livret-id'] })
+                expect(queryBuilderMocked.andWhere).toHaveBeenCalledWith('transaction.status = :status', { status: TransactionStatus.CONFIRMED })
             })
 
             it('should not query the transactions when the user has no savings goal', async () => {
@@ -192,6 +193,7 @@ describe('SavingsGoalService', () => {
                     merchant: 'Apport voiture',
                     accountId: 'account-id',
                     sourceType: TransactionSourceType.SAVINGS,
+                    status: TransactionStatus.CONFIRMED,
                     savingsGoalId: 'savings-goal-id',
                     userId: 'user-id',
                 })

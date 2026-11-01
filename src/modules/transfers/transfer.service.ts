@@ -5,7 +5,7 @@ import { ERRORS_MESSAGES } from "src/common/constants";
 import { Account } from "../accounts/account.entity";
 import { Transaction } from "../transactions/transaction.entity";
 import { toTransactionDto } from "../transactions/transaction.mapper";
-import { TransactionSourceType } from "../transactions/types";
+import { TransactionSourceType, TransactionStatus } from "../transactions/types";
 import { CreateTransferDto } from "./dto/create-transfer.dto";
 import { TransferResponseDto } from "./dto/transfer-response.dto";
 
@@ -33,7 +33,7 @@ export class TransferService {
                 }
 
                 const transferId = randomUUID()
-                const leg = { occurredOn, note: note ?? null, sourceType: TransactionSourceType.TRANSFER, transferId, userId }
+                const leg = { occurredOn, note: note ?? null, sourceType: TransactionSourceType.TRANSFER, status: TransactionStatus.CONFIRMED, transferId, userId }
                 const [from, to] = await manager.save(Transaction, [
                     { ...leg, amount: -amount!, accountId: fromAccountId },
                     { ...leg, amount: amount!, accountId: toAccountId },

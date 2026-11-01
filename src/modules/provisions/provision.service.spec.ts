@@ -5,7 +5,7 @@ import { DataSource, In } from "typeorm";
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { Account } from "../accounts/account.entity";
 import { Transaction } from "../transactions/transaction.entity";
-import { TransactionSourceType } from "../transactions/types";
+import { TransactionSourceType, TransactionStatus } from "../transactions/types";
 import { Provision } from "./provision.entity";
 import { ProvisionService } from "./provision.service";
 import { ProvisionStatus } from "./types";
@@ -170,6 +170,7 @@ describe('ProvisionService', () => {
                     accountId: 'account-id',
                     categoryId: null,
                     sourceType: TransactionSourceType.PROVISION,
+                    status: TransactionStatus.CONFIRMED,
                     provisionId: 'provision-id',
                     userId: 'user-id',
                 })

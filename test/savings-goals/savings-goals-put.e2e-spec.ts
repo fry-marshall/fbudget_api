@@ -44,6 +44,7 @@ describe('PUT savings-goals/:id', () => {
             expect(response.body.data).toStrictEqual({
                 id: goal.id,
                 ...body,
+                dayOfMonth: null,
                 hasGoal: true,
                 currentAmount: 37500,
                 progressPct: 25,
@@ -58,6 +59,7 @@ describe('PUT savings-goals/:id', () => {
             ['change the monthly contribution', 'monthlyContribution', 25000],
             ['change the target amount', 'targetAmount', 400000],
             ['remove the target date', 'targetDate', null],
+            ['set the day of the contribution', 'dayOfMonth', 28],
         ])('should %s', async (_, field, value) => {
             const { user, accessToken } = await createUserAndLogin(ctx)
             const goal = await createSavingsGoal(ctx, user)
@@ -95,6 +97,19 @@ describe('PUT savings-goals/:id', () => {
 
             expect(response.statusCode).toBe(200)
             expect(response.body.data).toMatchObject({ targetAmount: 100000, targetDate: '2027-12-01', hasGoal: true, progressPct: 0 })
+        })
+
+        it('should follow the reference income again with a null day', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const goal = await createSavingsGoal(ctx, user, { dayOfMonth: 5 })
+
+            const response = await request(ctx.app.getHttpServer())
+                .put(`/api/v1/savings-goals/${goal.id}`)
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send({ dayOfMonth: null })
+
+            expect(response.statusCode).toBe(200)
+            expect(response.body.data.dayOfMonth).toBeNull()
         })
 
         it('should unlink the account', async () => {
@@ -137,6 +152,8 @@ describe('PUT savings-goals/:id', () => {
             ['targetAmount', '300000'],
             ['targetDate', '2027-02-30'],
             ['accountId', 'toto'],
+            ['dayOfMonth', 0],
+            ['dayOfMonth', 32],
             ['hasGoal', false],
             ['currentAmount', 0],
             ['userId', UNKNOWN_ID],

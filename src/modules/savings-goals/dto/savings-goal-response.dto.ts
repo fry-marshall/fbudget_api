@@ -16,6 +16,9 @@ export class SavingsGoalResponseDto {
     @ApiProperty({ example: '2027-10-01', format: 'date', nullable: true })
     targetDate?: string | null;
 
+    @ApiProperty({ example: 28, nullable: true, description: 'Day of the monthly contribution, null to follow the day of the main fixed income' })
+    dayOfMonth?: number | null;
+
     @ApiProperty({ example: true, description: 'false for a plain recurring transfer without target, derived from targetAmount' })
     hasGoal?: boolean;
 

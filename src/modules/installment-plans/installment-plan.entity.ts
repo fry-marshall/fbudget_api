@@ -45,6 +45,10 @@ export class InstallmentPlan extends AbstractEntity {
     @OneToMany(() => Installment, (installment) => installment.plan)
     installments?: Installment[];
 
+    // Last month (YYYY-MM) whose pending transactions were generated, so that a deleted one is never generated again
+    @Column({ type: 'varchar', length: 7, nullable: true })
+    lastGeneratedMonth?: string | null;
+
     @Column()
     userId?: string;
 

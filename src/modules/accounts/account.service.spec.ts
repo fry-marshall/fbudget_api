@@ -8,6 +8,7 @@ import { Account } from "./account.entity";
 import { AccountService } from "./account.service";
 import { AccountType } from "./types";
 import { Transaction } from "../transactions/transaction.entity";
+import { TransactionStatus } from "../transactions/types";
 
 describe('AccountService', () => {
 
@@ -178,6 +179,7 @@ describe('AccountService', () => {
             const queryBuilder = {
                 select: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
+                andWhere: jest.fn().mockReturnThis(),
                 getRawOne: jest.fn().mockResolvedValue({ total }),
             }
             transactionRepositoryMocked.createQueryBuilder.mockReturnValueOnce(queryBuilder)
@@ -194,6 +196,7 @@ describe('AccountService', () => {
                 expect(response).toStrictEqual({ accountId: 'account-id', initialBalance: 150000, balance: 107500 })
                 expect(managerMocked.findOne).toHaveBeenCalledWith(Account, { where: { id: 'account-id', userId: 'user-id' } })
                 expect(queryBuilder.where).toHaveBeenCalledWith('transaction.accountId = :accountId', { accountId: 'account-id' })
+                expect(queryBuilder.andWhere).toHaveBeenCalledWith('transaction.status = :status', { status: TransactionStatus.CONFIRMED })
             })
 
             it('should return the initial balance when the account has no transaction', async () => {

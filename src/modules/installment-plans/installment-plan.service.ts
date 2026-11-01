@@ -6,7 +6,7 @@ import { Account } from "../accounts/account.entity";
 import { Category } from "../categories/category.entity";
 import { Transaction } from "../transactions/transaction.entity";
 import { toTransactionDto } from "../transactions/transaction.mapper";
-import { TransactionSourceType } from "../transactions/types";
+import { TransactionSourceType, TransactionStatus } from "../transactions/types";
 import { InstallmentPlan } from "./installment-plan.entity";
 import { Installment } from "./installment.entity";
 import { buildInstallments, getFirstDayOfNextMonth, getInstallmentAmount } from "./installment-plan.helpers";
@@ -136,6 +136,7 @@ export class InstallmentPlanService {
                     accountId: debitedAccountId,
                     categoryId: plan.categoryId,
                     sourceType: TransactionSourceType.INSTALLMENT,
+                    status: TransactionStatus.CONFIRMED,
                     installmentId: installment.id,
                     userId,
                 })
@@ -169,14 +170,14 @@ export class InstallmentPlanService {
     }
 
     /**
-     * Transactions paying the given installments, by installment id
+     * Confirmed transactions paying the given installments, by installment id, a pending one leaves its installment unpaid
      */
     private async findPayments(manager: EntityManager, installments: Installment[]): Promise<Map<string, Payment>> {
         if (!installments.length) return new Map()
 
         const transactions = await manager.find(Transaction, {
             select: { id: true, occurredOn: true, installmentId: true },
-            where: { installmentId: In(installments.map((installment) => installment.id!)) }
+            where: { installmentId: In(installments.map((installment) => installment.id!)), status: TransactionStatus.CONFIRMED }
         })
 
         return new Map(transactions.map((transaction) => [transaction.installmentId!, transaction]))

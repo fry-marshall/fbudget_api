@@ -1,10 +1,12 @@
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { Account } from "src/modules/accounts/account.entity";
 import { Income } from "src/modules/incomes/income.entity";
+import { Transaction } from "src/modules/transactions/transaction.entity";
+import { TransactionSourceType } from "src/modules/transactions/types";
 import request from 'supertest';
 import { Repository } from "typeorm";
 import { resetDatabase } from "../utils/database";
-import { createAccount, createIncome, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { createAccount, createIncome, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('DELETE incomes/:id', () => {
@@ -42,6 +44,19 @@ describe('DELETE incomes/:id', () => {
             expect(await incomeRepository.findOneBy({ id: income.id })).toBeNull()
             expect(await incomeRepository.findOneBy({ id: otherIncome.id })).not.toBeNull()
             expect(await ctx.repo(Account).findOneBy({ id: account.id })).not.toBeNull()
+        })
+
+        it('should keep its transactions without income', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const account = await createAccount(ctx, user)
+            const income = await createIncome(ctx, user, { accountId: account.id })
+            const transaction = await createTransaction(ctx, user, account, { amount: 248000, sourceType: TransactionSourceType.INCOME, incomeId: income.id })
+
+            await request(ctx.app.getHttpServer())
+                .delete(`/api/v1/incomes/${income.id}`)
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            expect(await ctx.repo(Transaction).findOneBy({ id: transaction.id })).toMatchObject({ incomeId: null, amount: 248000, sourceType: TransactionSourceType.INCOME })
         })
     })
 

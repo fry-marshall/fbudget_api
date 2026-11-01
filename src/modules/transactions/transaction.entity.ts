@@ -3,10 +3,12 @@ import { AbstractEntity } from "src/common/entities/abstract.entity";
 import { User } from "../users/user.entity";
 import { Account } from "../accounts/account.entity";
 import { Category } from "../categories/category.entity";
-import { TransactionSourceType } from "./types";
+import { TransactionSourceType, TransactionStatus } from "./types";
 import { Provision } from "../provisions/provision.entity";
 import { Installment } from "../installment-plans/installment.entity";
 import { SavingsGoal } from "../savings-goals/savings-goal.entity";
+import { FixedCharge } from "../fixed-charges/fixed-charge.entity";
+import { Income } from "../incomes/income.entity";
 
 @Entity('transactions')
 @Index('IDX_transactions_user_occurred_on', ['userId', 'occurredOn'])
@@ -16,6 +18,8 @@ import { SavingsGoal } from "../savings-goals/savings-goal.entity";
 @Index('UQ_transactions_installment', ['installmentId'], { unique: true })
 @Index('IDX_transactions_savings_goal', ['savingsGoalId'])
 @Index('IDX_transactions_transfer', ['transferId'])
+@Index('IDX_transactions_fixed_charge', ['fixedChargeId'])
+@Index('IDX_transactions_income', ['incomeId'])
 export class Transaction extends AbstractEntity {
     @Column({ type: 'int' })
     amount?: number;
@@ -34,6 +38,10 @@ export class Transaction extends AbstractEntity {
 
     @Column({ type: 'enum', enum: TransactionSourceType, default: TransactionSourceType.MANUAL })
     sourceType?: TransactionSourceType;
+
+    // Pending when generated for the month and not validated yet, only the confirmed ones change the balances
+    @Column({ type: 'enum', enum: TransactionStatus, default: TransactionStatus.CONFIRMED })
+    status?: TransactionStatus;
 
     // Required on creation, set to null when the account is deleted to keep the budget history
     @Column({ type: 'uuid', nullable: true })
@@ -73,6 +81,22 @@ export class Transaction extends AbstractEntity {
     @ManyToOne(() => SavingsGoal, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'savingsGoalId' })
     savingsGoal?: SavingsGoal | null;
+
+    // Set by the server when the transaction is generated from a fixed charge, kept null when the fixed charge is deleted
+    @Column({ type: 'uuid', nullable: true })
+    fixedChargeId?: string | null;
+
+    @ManyToOne(() => FixedCharge, { onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'fixedChargeId' })
+    fixedCharge?: FixedCharge | null;
+
+    // Set by the server when the transaction is generated from an income, kept null when the income is deleted
+    @Column({ type: 'uuid', nullable: true })
+    incomeId?: string | null;
+
+    @ManyToOne(() => Income, { onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'incomeId' })
+    income?: Income | null;
 
     // Shared by the two transactions of a transfer between two accounts of the user
     @Column({ type: 'uuid', nullable: true })

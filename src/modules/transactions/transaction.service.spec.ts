@@ -7,7 +7,7 @@ import { Account } from "../accounts/account.entity";
 import { Category } from "../categories/category.entity";
 import { Transaction } from "./transaction.entity";
 import { TransactionService } from "./transaction.service";
-import { TransactionSourceType } from "./types";
+import { TransactionSourceType, TransactionStatus } from "./types";
 
 describe('TransactionService', () => {
 
@@ -36,6 +36,7 @@ describe('TransactionService', () => {
         note: null,
         tags: [],
         sourceType: TransactionSourceType.MANUAL,
+        status: TransactionStatus.CONFIRMED,
         userId: 'user-id',
         createdAt,
         updatedAt: createdAt,
@@ -54,6 +55,9 @@ describe('TransactionService', () => {
         installmentId: null,
         savingsGoalId: null,
         transferId: null,
+        fixedChargeId: null,
+        incomeId: null,
+        status: TransactionStatus.CONFIRMED,
         createdAt,
     }
     const createBody = { amount: -4250, occurredOn: '2026-10-15', accountId: 'account-id' }
@@ -117,7 +121,7 @@ describe('TransactionService', () => {
 
                 expect(response).toStrictEqual(transactionDto)
                 expect(managerMocked.exists).toHaveBeenCalledWith(Account, { where: { id: 'account-id', userId: 'user-id' } })
-                expect(transactionRepositoryMocked.save).toHaveBeenCalledWith({ ...createBody, sourceType: TransactionSourceType.MANUAL, userId: 'user-id' })
+                expect(transactionRepositoryMocked.save).toHaveBeenCalledWith({ ...createBody, sourceType: TransactionSourceType.MANUAL, status: TransactionStatus.CONFIRMED, userId: 'user-id' })
             })
 
             it('should check the category belongs to the user', async () => {

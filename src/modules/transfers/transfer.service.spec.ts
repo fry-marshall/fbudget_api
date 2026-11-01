@@ -4,7 +4,7 @@ import { DataSource, In, QueryFailedError } from "typeorm";
 import { ERRORS_MESSAGES } from "src/common/constants";
 import { Account } from "../accounts/account.entity";
 import { Transaction } from "../transactions/transaction.entity";
-import { TransactionSourceType } from "../transactions/types";
+import { TransactionSourceType, TransactionStatus } from "../transactions/types";
 import { TransferService } from "./transfer.service";
 
 describe('TransferService', () => {
@@ -50,8 +50,8 @@ describe('TransferService', () => {
                 const [, legs] = managerMocked.save.mock.calls[0]
                 expect(managerMocked.count).toHaveBeenCalledWith(Account, { where: { id: In(['account-id', 'provisions-account-id']), userId: 'user-id' } })
                 expect(legs).toEqual([
-                    { amount: -5834, accountId: 'account-id', occurredOn: '2026-11-01', note: 'Provisions', sourceType: TransactionSourceType.TRANSFER, transferId: response.transferId, userId: 'user-id' },
-                    { amount: 5834, accountId: 'provisions-account-id', occurredOn: '2026-11-01', note: 'Provisions', sourceType: TransactionSourceType.TRANSFER, transferId: response.transferId, userId: 'user-id' },
+                    { amount: -5834, accountId: 'account-id', occurredOn: '2026-11-01', note: 'Provisions', sourceType: TransactionSourceType.TRANSFER, status: TransactionStatus.CONFIRMED, transferId: response.transferId, userId: 'user-id' },
+                    { amount: 5834, accountId: 'provisions-account-id', occurredOn: '2026-11-01', note: 'Provisions', sourceType: TransactionSourceType.TRANSFER, status: TransactionStatus.CONFIRMED, transferId: response.transferId, userId: 'user-id' },
                 ])
                 expect(response.from).toMatchObject({ id: 'transaction-0', amount: -5834, transferId: response.transferId })
                 expect(response.to).toMatchObject({ id: 'transaction-1', amount: 5834, transferId: response.transferId })

@@ -28,6 +28,13 @@ export class CreateSavingsGoalDto {
     @IsDateOnly()
     targetDate?: string | null;
 
+    @ApiPropertyOptional({ example: 28, minimum: 1, maximum: 31, nullable: true, description: 'Day of the monthly contribution, moved to the last day of the month when the month is shorter, null to follow the day of the main fixed income' })
+    @IsOptional()
+    @IsInt()
+    @Min(1)
+    @Max(31)
+    dayOfMonth?: number | null;
+
     @ApiPropertyOptional({ format: 'uuid', nullable: true, description: 'Account of the connected user debited by default for the contributions' })
     @IsOptional()
     @IsUUID()

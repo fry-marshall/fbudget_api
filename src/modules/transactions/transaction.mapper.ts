@@ -14,9 +14,12 @@ export const toTransactionDto = (transaction: Transaction): TransactionResponseD
     note: transaction.note ?? null,
     tags: transaction.tags ?? [],
     sourceType: transaction.sourceType,
+    status: transaction.status,
     provisionId: transaction.provisionId ?? null,
     installmentId: transaction.installmentId ?? null,
     savingsGoalId: transaction.savingsGoalId ?? null,
     transferId: transaction.transferId ?? null,
+    fixedChargeId: transaction.fixedChargeId ?? null,
+    incomeId: transaction.incomeId ?? null,
     createdAt: transaction.createdAt,
 })

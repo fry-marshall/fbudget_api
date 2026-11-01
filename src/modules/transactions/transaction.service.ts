@@ -10,7 +10,7 @@ import { TransactionResponseDto } from "./dto/transaction-response.dto";
 import { CreateTransactionDto } from "./dto/create-transaction.dto";
 import { UpdateTransactionDto } from "./dto/update-transaction.dto";
 import { FindTransactionsQueryDto } from "./dto/find-transactions-query.dto";
-import { TransactionSourceType } from "./types";
+import { TransactionSourceType, TransactionStatus } from "./types";
 import { toTransactionDto } from "./transaction.mapper";
 
 const FOREIGN_KEY_VIOLATION = '23503'
@@ -41,7 +41,7 @@ export class TransactionService {
         await this.checkUserRelations(userId, createTransactionDto)
 
         try {
-            const transaction = await this.transactionRepository.save({ ...createTransactionDto, sourceType: TransactionSourceType.MANUAL, userId })
+            const transaction = await this.transactionRepository.save({ ...createTransactionDto, sourceType: TransactionSourceType.MANUAL, status: TransactionStatus.CONFIRMED, userId })
 
             return toTransactionDto(transaction)
         } catch (err) {

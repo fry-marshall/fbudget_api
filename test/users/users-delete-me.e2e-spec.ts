@@ -8,7 +8,7 @@ import { Provision } from "src/modules/provisions/provision.entity";
 import { InstallmentPlan } from "src/modules/installment-plans/installment-plan.entity";
 import { Installment } from "src/modules/installment-plans/installment.entity";
 import { SavingsGoal } from "src/modules/savings-goals/savings-goal.entity";
-import { TransactionSourceType } from "src/modules/transactions/types";
+import { TransactionSourceType, TransactionStatus } from "src/modules/transactions/types";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
 import { Settings } from "src/modules/settings/settings.entity";
 import { AccountType } from "src/modules/accounts/types";
@@ -78,8 +78,8 @@ describe('DELETE users/me', () => {
             await createAccount(ctx, user, { type: AccountType.MOBILE_MONEY, name: 'Wave' })
             await createCategory(ctx, user, { envelopeBudget: 14000 })
             await createCategory(ctx, user, { type: CategoryType.OTHER, label: 'Netflix' })
-            await createIncome(ctx, user)
-            await createFixedCharge(ctx, user)
+            const income = await createIncome(ctx, user)
+            const fixedCharge = await createFixedCharge(ctx, user)
             const provision = await createProvision(ctx, user)
             const plan = await createInstallmentPlan(ctx, user)
             await createTransaction(ctx, user, account, { installmentId: plan.installments[0].id })
@@ -88,6 +88,8 @@ describe('DELETE users/me', () => {
             await createSavingsGoal(ctx, user, { label: 'Livret A', targetAmount: null, targetDate: null })
             await createTransaction(ctx, user, account, { sourceType: TransactionSourceType.SAVINGS, savingsGoalId: savingsGoal.id })
             await createTransfer(ctx, user, account, await createAccount(ctx, user, { name: 'Provisions' }))
+            await createTransaction(ctx, user, account, { amount: 248000, sourceType: TransactionSourceType.INCOME, incomeId: income.id, status: TransactionStatus.PENDING })
+            await createTransaction(ctx, user, account, { amount: -85000, sourceType: TransactionSourceType.FIXED_CHARGE, fixedChargeId: fixedCharge.id })
 
             await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')

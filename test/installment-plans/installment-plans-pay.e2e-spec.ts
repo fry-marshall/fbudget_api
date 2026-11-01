@@ -1,7 +1,7 @@
 import { ERRORS_MESSAGES } from "src/common/constants";
 import { InstallmentPlanStatus, InstallmentStatus } from "src/modules/installment-plans/types";
 import { Transaction } from "src/modules/transactions/transaction.entity";
-import { TransactionSourceType } from "src/modules/transactions/types";
+import { TransactionSourceType, TransactionStatus } from "src/modules/transactions/types";
 import request from 'supertest';
 import { Repository } from "typeorm";
 import { resetDatabase } from "../utils/database";
@@ -60,6 +60,9 @@ describe('POST installment-plans/:id/installments/:installmentId/pay', () => {
                     installmentId: installment.id,
                     savingsGoalId: null,
                     transferId: null,
+                    fixedChargeId: null,
+                    incomeId: null,
+                    status: TransactionStatus.CONFIRMED,
                     createdAt: transactionCreated!.createdAt!.toISOString(),
                 },
             })

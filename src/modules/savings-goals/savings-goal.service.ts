@@ -6,7 +6,7 @@ import { Account } from "../accounts/account.entity";
 import { Transaction } from "../transactions/transaction.entity";
 import { TransactionResponseDto } from "../transactions/dto/transaction-response.dto";
 import { toTransactionDto } from "../transactions/transaction.mapper";
-import { TransactionSourceType } from "../transactions/types";
+import { TransactionSourceType, TransactionStatus } from "../transactions/types";
 import { SavingsGoal } from "./savings-goal.entity";
 import { getProgressPct, getProjectedMonth } from "./savings-goal.helpers";
 import { SavingsGoalResponseDto } from "./dto/savings-goal-response.dto";
@@ -99,6 +99,7 @@ export class SavingsGoalService {
                 merchant: savingsGoal.label,
                 accountId: debitedAccountId,
                 sourceType: TransactionSourceType.SAVINGS,
+                status: TransactionStatus.CONFIRMED,
                 savingsGoalId: savingsGoal.id,
                 userId,
             })
@@ -136,7 +137,7 @@ export class SavingsGoalService {
     }
 
     /**
-     * Sum of the contributions of each savings goal in one query, the contributions being negative transactions
+     * Sum of the confirmed contributions of each savings goal in one query, the contributions being negative transactions
      */
     private async findCurrentAmounts(userId: string, savingsGoalIds: string[]): Promise<Map<string, number>> {
         if (!savingsGoalIds.length) {
@@ -148,6 +149,7 @@ export class SavingsGoalService {
             .addSelect('COALESCE(SUM(-transaction.amount), 0)', 'currentAmount')
             .where('transaction.userId = :userId', { userId })
             .andWhere('transaction.savingsGoalId IN (:...savingsGoalIds)', { savingsGoalIds })
+            .andWhere('transaction.status = :status', { status: TransactionStatus.CONFIRMED })
             .groupBy('transaction.savingsGoalId')
             .getRawMany<{ savingsGoalId: string, currentAmount: string }>()
 
@@ -192,6 +194,7 @@ export class SavingsGoalService {
             monthlyContribution: savingsGoal.monthlyContribution,
             targetAmount,
             targetDate: savingsGoal.targetDate ?? null,
+            dayOfMonth: savingsGoal.dayOfMonth ?? null,
             hasGoal: targetAmount !== null,
             currentAmount,
             progressPct: getProgressPct(currentAmount, targetAmount),

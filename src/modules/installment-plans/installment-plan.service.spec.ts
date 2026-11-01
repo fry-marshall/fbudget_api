@@ -4,7 +4,7 @@ import { BadRequestException, ConflictException, NotFoundException } from "@nest
 import { DataSource, QueryFailedError } from "typeorm";
 import { ERRORS_MESSAGES } from "src/common/constants";
 import { Transaction } from "../transactions/transaction.entity";
-import { TransactionSourceType } from "../transactions/types";
+import { TransactionSourceType, TransactionStatus } from "../transactions/types";
 import { InstallmentPlan } from "./installment-plan.entity";
 import { Installment } from "./installment.entity";
 import { InstallmentPlanService } from "./installment-plan.service";
@@ -133,6 +133,7 @@ describe('InstallmentPlanService', () => {
                     accountId: 'account-id',
                     categoryId: null,
                     sourceType: TransactionSourceType.INSTALLMENT,
+                    status: TransactionStatus.CONFIRMED,
                     installmentId: 'installment-3',
                     userId: 'user-id',
                 })

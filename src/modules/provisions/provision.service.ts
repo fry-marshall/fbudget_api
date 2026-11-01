@@ -8,7 +8,7 @@ import { Category } from "../categories/category.entity";
 import { Transaction } from "../transactions/transaction.entity";
 import { TransactionResponseDto } from "../transactions/dto/transaction-response.dto";
 import { toTransactionDto } from "../transactions/transaction.mapper";
-import { TransactionSourceType } from "../transactions/types";
+import { TransactionSourceType, TransactionStatus } from "../transactions/types";
 import { Provision } from "./provision.entity";
 import { ProvisionResponseDto } from "./dto/provision-response.dto";
 import { CreateProvisionDto } from "./dto/create-provision.dto";
@@ -103,6 +103,7 @@ export class ProvisionService {
                     accountId: debitedAccountId,
                     categoryId: provision.categoryId,
                     sourceType: TransactionSourceType.PROVISION,
+                    status: TransactionStatus.CONFIRMED,
                     provisionId: provision.id,
                     userId,
                 })

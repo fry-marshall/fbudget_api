@@ -1,6 +1,6 @@
 import { ERRORS_MESSAGES } from "src/common/constants";
 import { Transaction } from "src/modules/transactions/transaction.entity";
-import { TransactionSourceType } from "src/modules/transactions/types";
+import { TransactionSourceType, TransactionStatus } from "src/modules/transactions/types";
 import { User } from "src/modules/users/user.entity";
 import request from 'supertest';
 import { Repository } from "typeorm";
@@ -53,7 +53,7 @@ describe('POST transfers', () => {
                 transactionRepository.findOneBy({ accountId: account.id }),
                 transactionRepository.findOneBy({ accountId: provisionsAccount.id }),
             ])
-            const leg = { occurredOn: '2026-11-01', categoryId: null, merchant: null, note: 'Provisions de novembre', tags: [], sourceType: TransactionSourceType.TRANSFER, provisionId: null, installmentId: null, savingsGoalId: null, transferId: response.body.data.transferId }
+            const leg = { occurredOn: '2026-11-01', categoryId: null, merchant: null, note: 'Provisions de novembre', tags: [], sourceType: TransactionSourceType.TRANSFER, provisionId: null, installmentId: null, savingsGoalId: null, transferId: response.body.data.transferId, fixedChargeId: null, incomeId: null, status: TransactionStatus.CONFIRMED }
             expect(response.statusCode).toBe(201)
             expect(response.body.data).toStrictEqual({
                 transferId: expect.stringMatching(/^[0-9a-f-]{36}$/),
@@ -132,6 +132,7 @@ describe('POST transfers', () => {
             ['merchant', 'Banque'],
             ['sourceType', TransactionSourceType.MANUAL],
             ['transferId', UNKNOWN_ID],
+            ['status', TransactionStatus.PENDING],
             ['userId', UNKNOWN_ID],
         ])('should throw bad request when %s is %p', async (field, value) => {
             const { accessToken, validBody } = await setup()

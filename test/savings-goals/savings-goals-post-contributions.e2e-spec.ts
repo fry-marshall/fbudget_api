@@ -1,7 +1,7 @@
 import { ERRORS_MESSAGES } from "src/common/constants";
 import { Account } from "src/modules/accounts/account.entity";
 import { Transaction } from "src/modules/transactions/transaction.entity";
-import { TransactionSourceType } from "src/modules/transactions/types";
+import { TransactionSourceType, TransactionStatus } from "src/modules/transactions/types";
 import request from 'supertest';
 import { Repository } from "typeorm";
 import { resetDatabase } from "../utils/database";
@@ -57,6 +57,9 @@ describe('POST savings-goals/:id/contributions', () => {
                 installmentId: null,
                 savingsGoalId: goal.id,
                 transferId: null,
+                fixedChargeId: null,
+                incomeId: null,
+                status: TransactionStatus.CONFIRMED,
                 createdAt: transaction!.createdAt!.toISOString(),
             })
         })

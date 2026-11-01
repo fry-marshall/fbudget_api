@@ -42,6 +42,7 @@ describe('POST savings-goals', () => {
             expect(response.body.data).toStrictEqual({
                 id: savingsGoal!.id,
                 ...VALID_BODY,
+                dayOfMonth: null,
                 hasGoal: true,
                 currentAmount: 0,
                 progressPct: 0,
@@ -70,6 +71,9 @@ describe('POST savings-goals', () => {
             ['targetAmount', 1],
             ['targetDate', '2020-01-01'],
             ['accountId', null],
+            ['dayOfMonth', 1],
+            ['dayOfMonth', 31],
+            ['dayOfMonth', null],
         ])('should accept %s %p', async (field, value) => {
             const { accessToken } = await createUserAndLogin(ctx)
 
@@ -115,6 +119,10 @@ describe('POST savings-goals', () => {
             ['targetDate', '2027-10-01T00:00:00Z'],
             ['targetDate', '01/10/2027'],
             ['accountId', 'toto'],
+            ['dayOfMonth', 0],
+            ['dayOfMonth', 32],
+            ['dayOfMonth', 15.5],
+            ['dayOfMonth', '28'],
             ['hasGoal', true],
             ['currentAmount', 120000],
             ['userId', UNKNOWN_ID],

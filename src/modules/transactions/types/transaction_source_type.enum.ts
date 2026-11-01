@@ -3,6 +3,7 @@ export enum TransactionSourceType {
     FIXED_CHARGE = 'fixed_charge',
     PROVISION = 'provision',
     INSTALLMENT = 'installment',
+    INCOME = 'income',
     SAVINGS = 'savings',
     TRANSFER = 'transfer',
 }

@@ -29,6 +29,13 @@ export class UpdateSavingsGoalDto {
     @IsDateOnly()
     targetDate?: string | null;
 
+    @ApiPropertyOptional({ example: 28, minimum: 1, maximum: 31, nullable: true, description: 'Day of the monthly contribution, null to follow the day of the main fixed income' })
+    @ValidateIf((_, value) => value !== undefined && value !== null)
+    @IsInt()
+    @Min(1)
+    @Max(31)
+    dayOfMonth?: number | null;
+
     @ApiPropertyOptional({ format: 'uuid', nullable: true, description: 'Account of the connected user debited by default for the contributions, null to unlink it' })
     @ValidateIf((_, value) => value !== undefined && value !== null)
     @IsUUID()

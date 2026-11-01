@@ -1,6 +1,6 @@
 import { ERRORS_MESSAGES } from "src/common/constants";
 import { CategoryType } from "src/modules/categories/types";
-import { TransactionSourceType } from "src/modules/transactions/types";
+import { TransactionSourceType, TransactionStatus } from "src/modules/transactions/types";
 import request from 'supertest';
 import { resetDatabase } from "../utils/database";
 import { createAccount, createCategory, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
@@ -62,6 +62,9 @@ describe('GET transactions', () => {
                     installmentId: null,
                     savingsGoalId: null,
                     transferId: null,
+                    fixedChargeId: null,
+                    incomeId: null,
+                    status: TransactionStatus.CONFIRMED,
                     createdAt: salary.createdAt!.toISOString(),
                 },
                 {
@@ -78,6 +81,9 @@ describe('GET transactions', () => {
                     installmentId: null,
                     savingsGoalId: null,
                     transferId: null,
+                    fixedChargeId: null,
+                    incomeId: null,
+                    status: TransactionStatus.CONFIRMED,
                     createdAt: groceries.createdAt!.toISOString(),
                 },
             ])
@@ -162,6 +168,22 @@ describe('GET transactions', () => {
             expect(all.body.data.map((transaction) => transaction.id)).toEqual([transaction.id])
             expect(filtered.statusCode).toBe(200)
             expect(filtered.body.data).toEqual([])
+        })
+
+        it('should return the pending transactions with their status', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const account = await createAccount(ctx, user)
+            const confirmed = await createTransaction(ctx, user, account)
+            const pending = await createTransaction(ctx, user, account, { amount: -85000, occurredOn: '2026-10-05', status: TransactionStatus.PENDING })
+
+            const response = await request(ctx.app.getHttpServer())
+                .get('/api/v1/transactions?month=2026-10')
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            expect(response.body.data.map(({ id, status }) => ({ id, status }))).toEqual([
+                { id: confirmed.id, status: TransactionStatus.CONFIRMED },
+                { id: pending.id, status: TransactionStatus.PENDING },
+            ])
         })
 
         it('should not expose the user relation', async () => {

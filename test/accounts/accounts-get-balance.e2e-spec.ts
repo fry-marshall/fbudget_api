@@ -1,4 +1,5 @@
 import { ERRORS_MESSAGES } from "src/common/constants";
+import { TransactionStatus } from "src/modules/transactions/types";
 import request from 'supertest';
 import { resetDatabase } from "../utils/database";
 import { createAccount, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
@@ -47,6 +48,20 @@ describe('GET accounts/:id/balance', () => {
 
             expect(response.statusCode).toBe(200)
             expect(response.body.data.balance).toBe(150000 - 4250 - 50000 + 248000)
+        })
+
+        it('should not count the pending transactions', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const account = await createAccount(ctx, user)
+            await createTransaction(ctx, user, account, { amount: -4250 })
+            await createTransaction(ctx, user, account, { amount: -85000, status: TransactionStatus.PENDING })
+            await createTransaction(ctx, user, account, { amount: 248000, status: TransactionStatus.PENDING })
+
+            const response = await request(ctx.app.getHttpServer())
+                .get(`/api/v1/accounts/${account.id}/balance`)
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            expect(response.body.data.balance).toBe(150000 - 4250)
         })
 
         it('should return a negative balance', async () => {

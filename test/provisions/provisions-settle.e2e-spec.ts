@@ -2,7 +2,7 @@ import { ERRORS_MESSAGES } from "src/common/constants";
 import { Provision } from "src/modules/provisions/provision.entity";
 import { ProvisionStatus } from "src/modules/provisions/types";
 import { Transaction } from "src/modules/transactions/transaction.entity";
-import { TransactionSourceType } from "src/modules/transactions/types";
+import { TransactionSourceType, TransactionStatus } from "src/modules/transactions/types";
 import request from 'supertest';
 import { Repository } from "typeorm";
 import { resetDatabase } from "../utils/database";
@@ -74,6 +74,9 @@ describe('POST provisions/:id/settle', () => {
                     installmentId: null,
                     savingsGoalId: null,
                     transferId: null,
+                    fixedChargeId: null,
+                    incomeId: null,
+                    status: TransactionStatus.CONFIRMED,
                     createdAt: transactionCreated!.createdAt!.toISOString(),
                 },
             })
