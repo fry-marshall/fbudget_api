@@ -10,6 +10,7 @@ import { TransactionResponseDto } from "../transactions/dto/transaction-response
 import { toTransactionDto } from "../transactions/transaction.mapper";
 import { TransactionSourceType, TransactionStatus } from "../transactions/types";
 import { Provision } from "./provision.entity";
+import { getMonthlyAmount } from "./provision.helpers";
 import { ProvisionResponseDto } from "./dto/provision-response.dto";
 import { CreateProvisionDto } from "./dto/create-provision.dto";
 import { UpdateProvisionDto } from "./dto/update-provision.dto";
@@ -184,7 +185,7 @@ export class ProvisionService {
             label: provision.label,
             totalAmount: provision.totalAmount,
             frequencyMonths: provision.frequencyMonths,
-            monthlyAmount: Math.ceil(provision.totalAmount! / provision.frequencyMonths!),
+            monthlyAmount: getMonthlyAmount(provision.totalAmount!, provision.frequencyMonths!),
             nextDueDate: provision.nextDueDate,
             startedAt: provision.startedAt,
             status: provision.status,
