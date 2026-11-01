@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { ArrayMaxSize, IsArray, IsInt, IsISO8601, IsNotEmpty, IsString, IsUUID, Matches, Max, MaxLength, Min, NotEquals, ValidateIf } from "class-validator";
+import { ArrayMaxSize, IsArray, IsInt, IsNotEmpty, IsString, IsUUID, Max, MaxLength, Min, NotEquals, ValidateIf } from "class-validator";
 import { MAX_INT } from "src/common/constants";
+import { IsDateOnly } from "src/common/decorators/is-date-only.decorator";
 import { MAX_TAG_LENGTH, MAX_TAGS } from "../types/transaction.constants";
 
 export class UpdateTransactionDto {
@@ -14,8 +15,7 @@ export class UpdateTransactionDto {
 
     @ApiPropertyOptional({ example: '2026-10-30', format: 'date', description: 'Day of the transaction, without time, can be in the past' })
     @ValidateIf((_, value) => value !== undefined)
-    @Matches(/^\d{4}-\d{2}-\d{2}$/)
-    @IsISO8601({ strict: true })
+    @IsDateOnly()
     occurredOn?: string;
 
     @ApiPropertyOptional({ format: 'uuid', description: 'Account of the connected user, cannot be unset' })

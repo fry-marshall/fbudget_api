@@ -4,6 +4,7 @@ import { CategoryType } from "src/modules/categories/types";
 import { Income } from "src/modules/incomes/income.entity";
 import { FixedCharge } from "src/modules/fixed-charges/fixed-charge.entity";
 import { Transaction } from "src/modules/transactions/transaction.entity";
+import { Provision } from "src/modules/provisions/provision.entity";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
 import { Settings } from "src/modules/settings/settings.entity";
 import { AccountType } from "src/modules/accounts/types";
@@ -13,7 +14,7 @@ import { Repository } from "typeorm";
 import request from 'supertest'
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { resetDatabase } from "../utils/database";
-import { createAccount, createCategory, createFixedCharge, createIncome, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { createAccount, createCategory, createFixedCharge, createIncome, createProvision, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('DELETE users/me', () => {
@@ -26,6 +27,7 @@ describe('DELETE users/me', () => {
     let incomeRepository: Repository<Income>;
     let fixedChargeRepository: Repository<FixedCharge>;
     let transactionRepository: Repository<Transaction>;
+    let provisionRepository: Repository<Provision>;
 
     beforeAll(async () => {
         ctx = await createTestApp()
@@ -37,6 +39,7 @@ describe('DELETE users/me', () => {
         incomeRepository = ctx.repo(Income)
         fixedChargeRepository = ctx.repo(FixedCharge)
         transactionRepository = ctx.repo(Transaction)
+        provisionRepository = ctx.repo(Provision)
     })
 
     beforeEach(async () => {
@@ -73,7 +76,8 @@ describe('DELETE users/me', () => {
             await createCategory(ctx, user, { type: CategoryType.OTHER, label: 'Netflix' })
             await createIncome(ctx, user)
             await createFixedCharge(ctx, user)
-            await createTransaction(ctx, user, account)
+            const provision = await createProvision(ctx, user)
+            await createTransaction(ctx, user, account, { provisionId: provision.id })
 
             await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
@@ -89,6 +93,7 @@ describe('DELETE users/me', () => {
             expect(await incomeRepository.count()).toEqual(0)
             expect(await fixedChargeRepository.count()).toEqual(0)
             expect(await transactionRepository.count()).toEqual(0)
+            expect(await provisionRepository.count()).toEqual(0)
         })
 
         it('should keep the data of other users', async () => {
@@ -99,6 +104,7 @@ describe('DELETE users/me', () => {
             await createIncome(ctx, otherUser)
             await createFixedCharge(ctx, otherUser)
             await createTransaction(ctx, otherUser, otherAccount)
+            await createProvision(ctx, otherUser)
 
             await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
@@ -112,6 +118,7 @@ describe('DELETE users/me', () => {
             expect(await incomeRepository.countBy({ userId: otherUser.id })).toEqual(1)
             expect(await fixedChargeRepository.countBy({ userId: otherUser.id })).toEqual(1)
             expect(await transactionRepository.countBy({ userId: otherUser.id })).toEqual(1)
+            expect(await provisionRepository.countBy({ userId: otherUser.id })).toEqual(1)
         })
 
         it('should allow to sign up again with the email of a deleted user', async () => {

@@ -7,6 +7,7 @@ import { CategoryType } from "src/modules/categories/types";
 import { Income } from "src/modules/incomes/income.entity";
 import { FixedCharge } from "src/modules/fixed-charges/fixed-charge.entity";
 import { Transaction } from "src/modules/transactions/transaction.entity";
+import { Provision } from "src/modules/provisions/provision.entity";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
 import { AuthProvider } from "src/modules/users/types";
 import { User } from "src/modules/users/user.entity";
@@ -140,6 +141,16 @@ export const createTransaction = (ctx: TestContext, user: User, account: Account
     amount: -4250,
     occurredOn: '2026-10-15',
     accountId: account.id,
+    userId: user.id,
+    ...overrides
+})
+
+export const createProvision = (ctx: TestContext, user: User, overrides: DeepPartial<Provision> = {}): Promise<Provision> => ctx.repo(Provision).save({
+    label: 'Assurance auto',
+    totalAmount: 70000,
+    frequencyMonths: 12,
+    nextDueDate: '2027-03-15',
+    startedAt: '2026-11-01',
     userId: user.id,
     ...overrides
 })

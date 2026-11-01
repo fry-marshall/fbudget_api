@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { ArrayMaxSize, IsArray, IsDefined, IsInt, IsISO8601, IsNotEmpty, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, NotEquals, ValidateIf } from "class-validator";
+import { ArrayMaxSize, IsArray, IsDefined, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Max, MaxLength, Min, NotEquals, ValidateIf } from "class-validator";
 import { MAX_INT } from "src/common/constants";
+import { IsDateOnly } from "src/common/decorators/is-date-only.decorator";
 import { MAX_TAG_LENGTH, MAX_TAGS } from "../types/transaction.constants";
 
 export class CreateTransactionDto {
@@ -13,8 +14,7 @@ export class CreateTransactionDto {
     amount?: number;
 
     @ApiProperty({ example: '2026-10-30', format: 'date', description: 'Day of the transaction, without time, can be in the past' })
-    @Matches(/^\d{4}-\d{2}-\d{2}$/)
-    @IsISO8601({ strict: true })
+    @IsDateOnly()
     occurredOn?: string;
 
     @ApiProperty({ format: 'uuid', description: 'Account of the connected user' })

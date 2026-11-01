@@ -1,0 +1,2 @@
+export const MIN_FREQUENCY_MONTHS = 2
+export const MAX_FREQUENCY_MONTHS = 60

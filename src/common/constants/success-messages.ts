@@ -21,4 +21,7 @@ export const SUCCESS_MESSAGES = {
     TRANSACTION: {
         TRANSACTION_DELETED: 'Transaction deleted successfully'
     },
+    PROVISION: {
+        PROVISION_DELETED: 'Provision deleted successfully'
+    },
 }

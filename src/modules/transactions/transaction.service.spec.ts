@@ -50,6 +50,7 @@ describe('TransactionService', () => {
         note: null,
         tags: [],
         sourceType: TransactionSourceType.MANUAL,
+        provisionId: null,
         createdAt,
     }
     const createBody = { amount: -4250, occurredOn: '2026-10-15', accountId: 'account-id' }

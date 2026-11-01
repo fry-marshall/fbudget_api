@@ -46,6 +46,7 @@ describe('PUT transactions/:id', () => {
                 id: transaction.id,
                 ...body,
                 sourceType: TransactionSourceType.MANUAL,
+                provisionId: null,
                 createdAt: transaction.createdAt!.toISOString(),
             })
             expect(await transactionRepository.findOneBy({ id: transaction.id })).toMatchObject(body)
@@ -138,6 +139,7 @@ describe('PUT transactions/:id', () => {
             ['tags', ['a'.repeat(31)]],
             ['tags', Array.from({ length: 11 }, (_, index) => `tag${index}`)],
             ['sourceType', TransactionSourceType.PROVISION],
+            ['provisionId', UNKNOWN_ID],
             ['userId', UNKNOWN_ID],
             ['id', UNKNOWN_ID],
         ])('should throw bad request when %s is %p', async (field, value) => {

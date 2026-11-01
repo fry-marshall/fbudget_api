@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { And, LessThan, MoreThanOrEqual, QueryFailedError, Repository } from "typeorm";
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
+import { addMonthsToDate } from "src/common/helpers/helpers";
 import { Account } from "../accounts/account.entity";
 import { Category } from "../categories/category.entity";
 import { Transaction } from "./transaction.entity";
@@ -10,6 +11,7 @@ import { CreateTransactionDto } from "./dto/create-transaction.dto";
 import { UpdateTransactionDto } from "./dto/update-transaction.dto";
 import { FindTransactionsQueryDto } from "./dto/find-transactions-query.dto";
 import { TransactionSourceType } from "./types";
+import { toTransactionDto } from "./transaction.mapper";
 
 const FOREIGN_KEY_VIOLATION = '23503'
 
@@ -27,12 +29,12 @@ export class TransactionService {
                 userId,
                 ...(accountId && { accountId }),
                 ...(categoryId && { categoryId }),
-                occurredOn: And(MoreThanOrEqual(`${month}-01`), LessThan(this.firstDayOfNextMonth(month!)))
+                occurredOn: And(MoreThanOrEqual(`${month}-01`), LessThan(addMonthsToDate(`${month}-01`, 1)))
             },
             order: { occurredOn: 'DESC', createdAt: 'DESC' }
         })
 
-        return transactions.map((transaction) => this.toDto(transaction))
+        return transactions.map(toTransactionDto)
     }
 
     async create(userId: string, createTransactionDto: CreateTransactionDto): Promise<TransactionResponseDto> {
@@ -41,7 +43,7 @@ export class TransactionService {
         try {
             const transaction = await this.transactionRepository.save({ ...createTransactionDto, sourceType: TransactionSourceType.MANUAL, userId })
 
-            return this.toDto(transaction)
+            return toTransactionDto(transaction)
         } catch (err) {
             this.handleForeignKeyViolation(err)
             throw err
@@ -59,7 +61,7 @@ export class TransactionService {
             throw err
         }
 
-        return this.toDto((await this.transactionRepository.findOneBy({ id: transaction.id }))!)
+        return toTransactionDto((await this.transactionRepository.findOneBy({ id: transaction.id }))!)
     }
 
     async remove(userId: string, transactionId: string): Promise<{ message: string }> {
@@ -68,16 +70,6 @@ export class TransactionService {
         await this.transactionRepository.delete(transaction.id!)
 
         return { message: SUCCESS_MESSAGES.TRANSACTION.TRANSACTION_DELETED }
-    }
-
-    /**
-     * month is validated as YYYY-MM by the query DTO
-     */
-    private firstDayOfNextMonth(month: string): string {
-        const [year, monthIndex] = month.split('-').map(Number)
-        const nextMonth = new Date(Date.UTC(year, monthIndex, 1))
-
-        return nextMonth.toISOString().slice(0, 10)
     }
 
     private async findUserTransaction(userId: string, transactionId: string): Promise<Transaction> {
@@ -116,21 +108,6 @@ export class TransactionService {
                 throw new NotFoundException(ERRORS_MESSAGES.CATEGORIES.CATEGORY_NOT_FOUND)
             }
             throw new NotFoundException(ERRORS_MESSAGES.AUTH.USER_NOT_FOUND)
-        }
-    }
-
-    private toDto(transaction: Transaction): TransactionResponseDto {
-        return {
-            id: transaction.id,
-            amount: transaction.amount,
-            occurredOn: transaction.occurredOn,
-            accountId: transaction.accountId ?? null,
-            categoryId: transaction.categoryId ?? null,
-            merchant: transaction.merchant ?? null,
-            note: transaction.note ?? null,
-            tags: transaction.tags ?? [],
-            sourceType: transaction.sourceType,
-            createdAt: transaction.createdAt,
         }
     }
 }

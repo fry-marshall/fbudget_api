@@ -58,6 +58,7 @@ describe('GET transactions', () => {
                     note: null,
                     tags: [],
                     sourceType: TransactionSourceType.MANUAL,
+                    provisionId: null,
                     createdAt: salary.createdAt!.toISOString(),
                 },
                 {
@@ -70,6 +71,7 @@ describe('GET transactions', () => {
                     note: 'Courses',
                     tags: ['maison'],
                     sourceType: TransactionSourceType.MANUAL,
+                    provisionId: null,
                     createdAt: groceries.createdAt!.toISOString(),
                 },
             ])

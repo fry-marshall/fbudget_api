@@ -29,6 +29,9 @@ export class TransactionResponseDto {
     @ApiProperty({ enum: TransactionSourceType })
     sourceType?: TransactionSourceType;
 
+    @ApiProperty({ format: 'uuid', nullable: true, description: 'Provision settled by this transaction' })
+    provisionId?: string | null;
+
     @ApiProperty()
     createdAt?: Date;
 }

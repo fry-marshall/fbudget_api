@@ -13,6 +13,7 @@ import { CategoryModule } from './modules/categories/category.module';
 import { IncomeModule } from './modules/incomes/income.module';
 import { FixedChargeModule } from './modules/fixed-charges/fixed-charge.module';
 import { TransactionModule } from './modules/transactions/transaction.module';
+import { ProvisionModule } from './modules/provisions/provision.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ERRORS_MESSAGES } from './common/constants';
 
@@ -57,6 +58,7 @@ import { ERRORS_MESSAGES } from './common/constants';
     IncomeModule,
     FixedChargeModule,
     TransactionModule,
+    ProvisionModule,
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

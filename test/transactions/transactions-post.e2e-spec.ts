@@ -50,6 +50,7 @@ describe('POST transactions', () => {
                 id: transactionCreated!.id,
                 ...body,
                 sourceType: TransactionSourceType.MANUAL,
+                provisionId: null,
                 createdAt: transactionCreated!.createdAt!.toISOString(),
             })
             expect(transactionCreated).toMatchObject({ ...body, sourceType: TransactionSourceType.MANUAL })
@@ -125,6 +126,7 @@ describe('POST transactions', () => {
             ['tags', ['a'.repeat(31)]],
             ['tags', Array.from({ length: 11 }, (_, index) => `tag${index}`)],
             ['sourceType', TransactionSourceType.FIXED_CHARGE],
+            ['provisionId', '00000000-0000-0000-0000-000000000000'],
             ['userId', UNKNOWN_ID],
             ['id', UNKNOWN_ID],
         ])('should throw bad request when %s is %p', async (field, value) => {

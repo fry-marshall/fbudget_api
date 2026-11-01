@@ -30,5 +30,10 @@ export const ERRORS_MESSAGES = {
     },
     TRANSACTIONS: {
         TRANSACTION_NOT_FOUND: 'Transaction not found'
+    },
+    PROVISIONS: {
+        PROVISION_NOT_FOUND: 'Provision not found',
+        PROVISION_CANCELLED: 'Provision is cancelled and cannot be changed',
+        ACCOUNT_REQUIRED: 'An account is required to settle a provision without account',
     }
 }

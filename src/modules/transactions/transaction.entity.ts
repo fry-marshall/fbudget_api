@@ -4,11 +4,13 @@ import { User } from "../users/user.entity";
 import { Account } from "../accounts/account.entity";
 import { Category } from "../categories/category.entity";
 import { TransactionSourceType } from "./types";
+import { Provision } from "../provisions/provision.entity";
 
 @Entity('transactions')
 @Index('IDX_transactions_user_occurred_on', ['userId', 'occurredOn'])
 @Index('IDX_transactions_account_occurred_on', ['accountId', 'occurredOn'])
 @Index('IDX_transactions_category_occurred_on', ['categoryId', 'occurredOn'])
+@Index('IDX_transactions_provision', ['provisionId'])
 export class Transaction extends AbstractEntity {
     @Column({ type: 'int' })
     amount?: number;
@@ -42,6 +44,14 @@ export class Transaction extends AbstractEntity {
     @ManyToOne(() => Category, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'categoryId' })
     category?: Category | null;
+
+    // Set by the server when the transaction settles a provision, kept null when the provision is deleted
+    @Column({ type: 'uuid', nullable: true })
+    provisionId?: string | null;
+
+    @ManyToOne(() => Provision, { onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'provisionId' })
+    provision?: Provision | null;
 
     @Column()
     userId?: string;
