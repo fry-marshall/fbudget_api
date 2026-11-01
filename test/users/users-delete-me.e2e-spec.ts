@@ -18,7 +18,7 @@ import { Repository } from "typeorm";
 import request from 'supertest'
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { resetDatabase } from "../utils/database";
-import { createAccount, createCategory, createFixedCharge, createIncome, createInstallmentPlan, createProvision, createSavingsGoal, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { createAccount, createCategory, createFixedCharge, createIncome, createInstallmentPlan, createProvision, createSavingsGoal, createTransaction, createTransfer, createUserAndLogin, signAccessToken } from "../utils/factories";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('DELETE users/me', () => {
@@ -87,6 +87,7 @@ describe('DELETE users/me', () => {
             const savingsGoal = await createSavingsGoal(ctx, user, { accountId: account.id })
             await createSavingsGoal(ctx, user, { label: 'Livret A', targetAmount: null, targetDate: null })
             await createTransaction(ctx, user, account, { sourceType: TransactionSourceType.SAVINGS, savingsGoalId: savingsGoal.id })
+            await createTransfer(ctx, user, account, await createAccount(ctx, user, { name: 'Provisions' }))
 
             await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')

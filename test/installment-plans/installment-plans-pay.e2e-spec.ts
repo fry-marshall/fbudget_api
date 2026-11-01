@@ -59,6 +59,7 @@ describe('POST installment-plans/:id/installments/:installmentId/pay', () => {
                     provisionId: null,
                     installmentId: installment.id,
                     savingsGoalId: null,
+                    transferId: null,
                     createdAt: transactionCreated!.createdAt!.toISOString(),
                 },
             })

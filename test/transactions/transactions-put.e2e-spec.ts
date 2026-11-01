@@ -4,7 +4,7 @@ import { TransactionSourceType } from "src/modules/transactions/types";
 import request from 'supertest';
 import { Repository } from "typeorm";
 import { resetDatabase } from "../utils/database";
-import { createAccount, createCategory, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { createAccount, createCategory, createTransaction, createTransfer, createUserAndLogin, signAccessToken } from "../utils/factories";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('PUT transactions/:id', () => {
@@ -49,6 +49,7 @@ describe('PUT transactions/:id', () => {
                 provisionId: null,
                 installmentId: null,
                 savingsGoalId: null,
+                transferId: null,
                 createdAt: transaction.createdAt!.toISOString(),
             })
             expect(await transactionRepository.findOneBy({ id: transaction.id })).toMatchObject(body)
@@ -106,6 +107,23 @@ describe('PUT transactions/:id', () => {
             expect(response.body.data).toMatchObject({ ...TRANSACTION_DEFAULTS, accountId: account.id, tags: ['maison'] })
         })
 
+        it('should update the merchant, the note and the tags of one transaction of a transfer only', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const account = await createAccount(ctx, user)
+            const provisionsAccount = await createAccount(ctx, user, { name: 'Provisions' })
+            const transfer = await createTransfer(ctx, user, account, provisionsAccount)
+            const body = { merchant: 'Virement', note: 'Provisions de novembre', tags: ['provisions'] }
+
+            const response = await request(ctx.app.getHttpServer())
+                .put(`/api/v1/transactions/${transfer.from.id}`)
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send(body)
+
+            expect(response.statusCode).toBe(200)
+            expect(response.body.data).toMatchObject({ ...body, amount: -5834, transferId: transfer.transferId, sourceType: TransactionSourceType.TRANSFER })
+            expect(await transactionRepository.findOneBy({ id: transfer.to.id })).toMatchObject({ merchant: null, note: null, tags: [] })
+        })
+
         it('should not update the other transactions', async () => {
             const { user, accessToken } = await createUserAndLogin(ctx)
             const account = await createAccount(ctx, user)
@@ -144,6 +162,7 @@ describe('PUT transactions/:id', () => {
             ['provisionId', UNKNOWN_ID],
             ['installmentId', UNKNOWN_ID],
             ['savingsGoalId', UNKNOWN_ID],
+            ['transferId', UNKNOWN_ID],
             ['userId', UNKNOWN_ID],
             ['id', UNKNOWN_ID],
         ])('should throw bad request when %s is %p', async (field, value) => {
@@ -159,6 +178,32 @@ describe('PUT transactions/:id', () => {
             expect(response.statusCode).toBe(400)
             expect(response.body.message).toBe(ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST)
             expect(await transactionRepository.findOneBy({ id: transaction.id })).toMatchObject({ ...TRANSACTION_DEFAULTS, accountId: account.id, sourceType: TransactionSourceType.MANUAL })
+        })
+
+        it.each([
+            ['amount', -6000],
+            ['occurredOn', '2026-11-05'],
+            ['accountId', 'other-account'],
+            ['categoryId', 'category'],
+            ['categoryId', null],
+        ])('should throw conflict and keep both transactions of a transfer when %s is %p', async (field, value) => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const account = await createAccount(ctx, user)
+            const provisionsAccount = await createAccount(ctx, user, { name: 'Provisions' })
+            const otherAccount = await createAccount(ctx, user, { name: 'Wave' })
+            const category = await createCategory(ctx, user)
+            const transfer = await createTransfer(ctx, user, account, provisionsAccount)
+            const resolved = { 'other-account': otherAccount.id, category: category.id }[value as string] ?? value
+
+            const response = await request(ctx.app.getHttpServer())
+                .put(`/api/v1/transactions/${transfer.to.id}`)
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send({ [field]: resolved })
+
+            expect(response.statusCode).toBe(409)
+            expect(response.body.message).toBe(ERRORS_MESSAGES.TRANSACTIONS.TRANSFER_NOT_EDITABLE)
+            expect(await transactionRepository.findOneBy({ id: transfer.from.id })).toMatchObject({ amount: -5834, occurredOn: '2026-11-01', accountId: account.id, categoryId: null })
+            expect(await transactionRepository.findOneBy({ id: transfer.to.id })).toMatchObject({ amount: 5834, occurredOn: '2026-11-01', accountId: provisionsAccount.id, categoryId: null })
         })
 
         it('should throw bad request when id is not a uuid', async () => {

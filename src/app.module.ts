@@ -16,6 +16,7 @@ import { TransactionModule } from './modules/transactions/transaction.module';
 import { ProvisionModule } from './modules/provisions/provision.module';
 import { InstallmentPlanModule } from './modules/installment-plans/installment-plan.module';
 import { SavingsGoalModule } from './modules/savings-goals/savings-goal.module';
+import { TransferModule } from './modules/transfers/transfer.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ERRORS_MESSAGES } from './common/constants';
 
@@ -63,6 +64,7 @@ import { ERRORS_MESSAGES } from './common/constants';
     ProvisionModule,
     InstallmentPlanModule,
     SavingsGoalModule,
+    TransferModule,
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

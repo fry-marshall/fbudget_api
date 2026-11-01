@@ -4,7 +4,7 @@ import { Transaction } from "src/modules/transactions/transaction.entity";
 import request from 'supertest';
 import { Repository } from "typeorm";
 import { resetDatabase } from "../utils/database";
-import { createAccount, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { createAccount, createTransaction, createTransfer, createUserAndLogin, signAccessToken } from "../utils/factories";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('DELETE transactions/:id', () => {
@@ -42,6 +42,27 @@ describe('DELETE transactions/:id', () => {
             expect(await transactionRepository.findOneBy({ id: transaction.id })).toBeNull()
             expect(await transactionRepository.findOneBy({ id: otherTransaction.id })).not.toBeNull()
             expect(await ctx.repo(Account).findOneBy({ id: account.id })).not.toBeNull()
+        })
+
+        it.each([
+            ['debit', 'from'],
+            ['credit', 'to'],
+        ])('should delete both transactions of a transfer when deleting its %s', async (_, leg) => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const account = await createAccount(ctx, user)
+            const provisionsAccount = await createAccount(ctx, user, { name: 'Provisions' })
+            const transfer = await createTransfer(ctx, user, account, provisionsAccount)
+            const otherTransfer = await createTransfer(ctx, user, account, provisionsAccount)
+            const transaction = await createTransaction(ctx, user, account)
+
+            const response = await request(ctx.app.getHttpServer())
+                .delete(`/api/v1/transactions/${transfer[leg].id}`)
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            expect(response.statusCode).toBe(200)
+            expect(await transactionRepository.countBy({ transferId: transfer.transferId })).toEqual(0)
+            expect(await transactionRepository.countBy({ transferId: otherTransfer.transferId })).toEqual(2)
+            expect(await transactionRepository.findOneBy({ id: transaction.id })).not.toBeNull()
         })
     })
 

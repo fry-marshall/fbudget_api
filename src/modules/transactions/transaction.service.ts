@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { And, LessThan, MoreThanOrEqual, QueryFailedError, Repository } from "typeorm";
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
@@ -52,6 +52,7 @@ export class TransactionService {
 
     async update(userId: string, transactionId: string, updateTransactionDto: UpdateTransactionDto): Promise<TransactionResponseDto> {
         const transaction = await this.findUserTransaction(userId, transactionId)
+        this.checkTransferEditable(transaction, updateTransactionDto)
         await this.checkUserRelations(userId, updateTransactionDto)
 
         try {
@@ -64,10 +65,13 @@ export class TransactionService {
         return toTransactionDto((await this.transactionRepository.findOneBy({ id: transaction.id }))!)
     }
 
+    /**
+     * Deleting one transaction of a transfer deletes the other one in the same statement
+     */
     async remove(userId: string, transactionId: string): Promise<{ message: string }> {
         const transaction = await this.findUserTransaction(userId, transactionId)
 
-        await this.transactionRepository.delete(transaction.id!)
+        await this.transactionRepository.delete(transaction.transferId ? { transferId: transaction.transferId, userId } : transaction.id!)
 
         return { message: SUCCESS_MESSAGES.TRANSACTION.TRANSACTION_DELETED }
     }
@@ -80,6 +84,15 @@ export class TransactionService {
         }
 
         return transaction
+    }
+
+    /**
+     * Both transactions of a transfer must keep the same amount, date and accounts, and a transfer has no category
+     */
+    private checkTransferEditable(transaction: Transaction, { amount, occurredOn, accountId, categoryId }: UpdateTransactionDto): void {
+        if (transaction.transferId && [amount, occurredOn, accountId, categoryId].some((value) => value !== undefined)) {
+            throw new ConflictException(ERRORS_MESSAGES.TRANSACTIONS.TRANSFER_NOT_EDITABLE)
+        }
     }
 
     private async checkUserRelations(userId: string, { accountId, categoryId }: { accountId?: string | null, categoryId?: string | null }): Promise<void> {

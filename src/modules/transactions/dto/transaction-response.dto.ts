@@ -38,6 +38,9 @@ export class TransactionResponseDto {
     @ApiProperty({ format: 'uuid', nullable: true, description: 'Savings goal this transaction contributes to' })
     savingsGoalId?: string | null;
 
+    @ApiProperty({ format: 'uuid', nullable: true, description: 'Shared by the two transactions of a transfer: the debit of the source account and the credit of the destination account' })
+    transferId?: string | null;
+
     @ApiProperty()
     createdAt?: Date;
 }

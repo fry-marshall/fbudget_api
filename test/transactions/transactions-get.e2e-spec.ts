@@ -61,6 +61,7 @@ describe('GET transactions', () => {
                     provisionId: null,
                     installmentId: null,
                     savingsGoalId: null,
+                    transferId: null,
                     createdAt: salary.createdAt!.toISOString(),
                 },
                 {
@@ -76,6 +77,7 @@ describe('GET transactions', () => {
                     provisionId: null,
                     installmentId: null,
                     savingsGoalId: null,
+                    transferId: null,
                     createdAt: groceries.createdAt!.toISOString(),
                 },
             ])

@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { UuidParamPipe } from "src/common/pipes/uuid-param.pipe";
 import { MessageResponseDto } from "src/common/dto/message-response.dto";
-import { ApiBadRequestResponse, ApiNotFoundResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { ApiBadRequestResponse, ApiConflictResponse, ApiNotFoundResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { JwtGuard } from "src/common/guards/jwt.guard";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
 import type { PayloadJwt } from "src/common/interfaces";
@@ -41,16 +41,17 @@ export class TransactionController {
     }
 
     @Put(':id')
-    @ApiOperation({ summary: 'Update a transaction of the connected user' })
+    @ApiOperation({ summary: 'Update a transaction of the connected user, only the merchant, note and tags of a transfer can be changed' })
     @ApiSuccessResponse(TransactionResponseDto)
     @ApiBadRequestResponse({ description: ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST, type: ErrorResponse })
     @ApiNotFoundResponse({ description: `${ERRORS_MESSAGES.TRANSACTIONS.TRANSACTION_NOT_FOUND} | ${ERRORS_MESSAGES.ACCOUNTS.ACCOUNT_NOT_FOUND} | ${ERRORS_MESSAGES.CATEGORIES.CATEGORY_NOT_FOUND}`, type: ErrorResponse })
+    @ApiConflictResponse({ description: ERRORS_MESSAGES.TRANSACTIONS.TRANSFER_NOT_EDITABLE, type: ErrorResponse })
     update(@CurrentUser() user: PayloadJwt, @Param('id', UuidParamPipe) id: string, @Body() updateTransactionDto: UpdateTransactionDto): Promise<TransactionResponseDto> {
         return this.transactionService.update(user.id!, id, updateTransactionDto)
     }
 
     @Delete(':id')
-    @ApiOperation({ summary: 'Delete a transaction of the connected user' })
+    @ApiOperation({ summary: 'Delete a transaction of the connected user, both transactions of a transfer are deleted together' })
     @ApiSuccessResponse(MessageResponseDto)
     @ApiBadRequestResponse({ description: ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST, type: ErrorResponse })
     @ApiNotFoundResponse({ description: ERRORS_MESSAGES.TRANSACTIONS.TRANSACTION_NOT_FOUND, type: ErrorResponse })

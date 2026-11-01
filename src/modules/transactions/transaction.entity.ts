@@ -15,6 +15,7 @@ import { SavingsGoal } from "../savings-goals/savings-goal.entity";
 @Index('IDX_transactions_provision', ['provisionId'])
 @Index('UQ_transactions_installment', ['installmentId'], { unique: true })
 @Index('IDX_transactions_savings_goal', ['savingsGoalId'])
+@Index('IDX_transactions_transfer', ['transferId'])
 export class Transaction extends AbstractEntity {
     @Column({ type: 'int' })
     amount?: number;
@@ -72,6 +73,10 @@ export class Transaction extends AbstractEntity {
     @ManyToOne(() => SavingsGoal, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'savingsGoalId' })
     savingsGoal?: SavingsGoal | null;
+
+    // Shared by the two transactions of a transfer between two accounts of the user
+    @Column({ type: 'uuid', nullable: true })
+    transferId?: string | null;
 
     @Column()
     userId?: string;

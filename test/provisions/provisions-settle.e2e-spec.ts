@@ -73,6 +73,7 @@ describe('POST provisions/:id/settle', () => {
                     provisionId: provision.id,
                     installmentId: null,
                     savingsGoalId: null,
+                    transferId: null,
                     createdAt: transactionCreated!.createdAt!.toISOString(),
                 },
             })

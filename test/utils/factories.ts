@@ -1,4 +1,5 @@
 import * as bcrypt from "bcrypt";
+import { randomUUID } from "crypto";
 import { getTokenExpiry } from "src/common/helpers/helpers";
 import { Account } from "src/modules/accounts/account.entity";
 import { AccountType } from "src/modules/accounts/types";
@@ -7,6 +8,7 @@ import { CategoryType } from "src/modules/categories/types";
 import { Income } from "src/modules/incomes/income.entity";
 import { FixedCharge } from "src/modules/fixed-charges/fixed-charge.entity";
 import { Transaction } from "src/modules/transactions/transaction.entity";
+import { TransactionSourceType } from "src/modules/transactions/types";
 import { Provision } from "src/modules/provisions/provision.entity";
 import { InstallmentPlan } from "src/modules/installment-plans/installment-plan.entity";
 import { Installment } from "src/modules/installment-plans/installment.entity";
@@ -187,3 +189,17 @@ export const createSavingsGoal = (ctx: TestContext, user: User, overrides: DeepP
     userId: user.id,
     ...overrides
 })
+
+/**
+ * Save the debit and the credit of a transfer between two accounts, sharing a transferId
+ */
+export const createTransfer = async (ctx: TestContext, user: User, from: Account, to: Account, amount: number = 5834): Promise<{ transferId: string, from: Transaction, to: Transaction }> => {
+    const transferId = randomUUID()
+    const leg = { occurredOn: '2026-11-01', sourceType: TransactionSourceType.TRANSFER, transferId, userId: user.id }
+    const [debit, credit] = await ctx.repo(Transaction).save([
+        { ...leg, amount: -amount, accountId: from.id },
+        { ...leg, amount, accountId: to.id },
+    ])
+
+    return { transferId, from: debit, to: credit }
+}

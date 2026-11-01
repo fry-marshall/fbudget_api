@@ -4,4 +4,5 @@ export enum TransactionSourceType {
     PROVISION = 'provision',
     INSTALLMENT = 'installment',
     SAVINGS = 'savings',
+    TRANSFER = 'transfer',
 }

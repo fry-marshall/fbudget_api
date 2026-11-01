@@ -56,6 +56,7 @@ describe('POST savings-goals/:id/contributions', () => {
                 provisionId: null,
                 installmentId: null,
                 savingsGoalId: goal.id,
+                transferId: null,
                 createdAt: transaction!.createdAt!.toISOString(),
             })
         })

@@ -1,6 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { NotFoundException } from "@nestjs/common";
+import { ConflictException, NotFoundException } from "@nestjs/common";
 import { And, LessThan, MoreThanOrEqual, QueryFailedError } from "typeorm";
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { Account } from "../accounts/account.entity";
@@ -53,6 +53,7 @@ describe('TransactionService', () => {
         provisionId: null,
         installmentId: null,
         savingsGoalId: null,
+        transferId: null,
         createdAt,
     }
     const createBody = { amount: -4250, occurredOn: '2026-10-15', accountId: 'account-id' }
@@ -188,6 +189,17 @@ describe('TransactionService', () => {
                 expect(response).toStrictEqual(transactionDto)
                 expect(managerMocked.exists).not.toHaveBeenCalled()
             })
+
+            it('should update the note of a transaction of a transfer', async () => {
+                const transferLeg = { ...transactionMocked, sourceType: TransactionSourceType.TRANSFER, transferId: 'transfer-id' }
+                transactionRepositoryMocked.findOne.mockResolvedValueOnce(transferLeg)
+                transactionRepositoryMocked.findOneBy.mockResolvedValueOnce({ ...transferLeg, note: 'Provisions' })
+
+                const response = await transactionService.update('user-id', 'transaction-id', { note: 'Provisions', tags: ['provisions'] })
+
+                expect(response).toMatchObject({ note: 'Provisions', transferId: 'transfer-id' })
+                expect(transactionRepositoryMocked.update).toHaveBeenCalledWith('transaction-id', { note: 'Provisions', tags: ['provisions'] })
+            })
         })
 
         describe('Failure cases', () => {
@@ -195,6 +207,18 @@ describe('TransactionService', () => {
                 transactionRepositoryMocked.findOne.mockResolvedValueOnce(null)
 
                 await expect(transactionService.update('user-id', 'transaction-id', { amount: -5000 })).rejects.toThrow(new NotFoundException(ERRORS_MESSAGES.TRANSACTIONS.TRANSACTION_NOT_FOUND))
+                expect(transactionRepositoryMocked.update).not.toHaveBeenCalled()
+            })
+
+            it.each([
+                ['amount', -5000],
+                ['occurredOn', '2026-11-05'],
+                ['accountId', 'other-account-id'],
+                ['categoryId', null],
+            ])('should throw ConflictException when %s of a transaction of a transfer changes', async (field, value) => {
+                transactionRepositoryMocked.findOne.mockResolvedValueOnce({ ...transactionMocked, transferId: 'transfer-id' })
+
+                await expect(transactionService.update('user-id', 'transaction-id', { [field]: value })).rejects.toThrow(new ConflictException(ERRORS_MESSAGES.TRANSACTIONS.TRANSFER_NOT_EDITABLE))
                 expect(transactionRepositoryMocked.update).not.toHaveBeenCalled()
             })
 
@@ -232,6 +256,14 @@ describe('TransactionService', () => {
 
                 expect(response.message).toBe(SUCCESS_MESSAGES.TRANSACTION.TRANSACTION_DELETED)
                 expect(transactionRepositoryMocked.delete).toHaveBeenCalledWith('transaction-id')
+            })
+
+            it('should delete both transactions of a transfer', async () => {
+                transactionRepositoryMocked.findOne.mockResolvedValueOnce({ ...transactionMocked, transferId: 'transfer-id' })
+
+                await transactionService.remove('user-id', 'transaction-id')
+
+                expect(transactionRepositoryMocked.delete).toHaveBeenCalledWith({ transferId: 'transfer-id', userId: 'user-id' })
             })
         })
 

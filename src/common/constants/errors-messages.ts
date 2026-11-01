@@ -29,7 +29,8 @@ export const ERRORS_MESSAGES = {
         FIXED_CHARGE_NOT_FOUND: 'Fixed charge not found'
     },
     TRANSACTIONS: {
-        TRANSACTION_NOT_FOUND: 'Transaction not found'
+        TRANSACTION_NOT_FOUND: 'Transaction not found',
+        TRANSFER_NOT_EDITABLE: 'The amount, account, date and category of a transfer cannot be changed, delete it and create a new one',
     },
     PROVISIONS: {
         PROVISION_NOT_FOUND: 'Provision not found',
@@ -47,5 +48,8 @@ export const ERRORS_MESSAGES = {
         SAVINGS_GOAL_NOT_FOUND: 'Savings goal not found',
         TARGET_AMOUNT_REQUIRED: 'A target date requires a target amount',
         ACCOUNT_REQUIRED: 'An account is required to contribute to a savings goal without account',
+    },
+    TRANSFERS: {
+        SAME_ACCOUNT: 'The source and destination accounts must be different',
     }
 }
