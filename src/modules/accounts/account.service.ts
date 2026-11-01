@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, EntityManager, Repository } from "typeorm";
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
@@ -10,6 +10,9 @@ import { UpdateAccountDto } from "./dto/update-account.dto";
 import { AccountBalanceResponseDto } from "./dto/account-balance-response.dto";
 import { Transaction } from "../transactions/transaction.entity";
 import { TransactionStatus } from "../transactions/types";
+
+// The primary account funds the other accounts, its own monthly funding is dropped when it becomes primary
+const NEW_PRIMARY_ACCOUNT = { isPrimary: true, monthlyFunding: null, monthlyFundingDay: null }
 
 @Injectable()
 export class AccountService {
@@ -35,9 +38,10 @@ export class AccountService {
         const account = await this.dataSource.transaction(async (manager) => {
             await this.lockUser(manager, userId, ERRORS_MESSAGES.AUTH.USER_NOT_FOUND)
 
-            const hasAccount = await manager.exists(Account, { where: { userId } })
+            const isPrimary = !(await manager.exists(Account, { where: { userId } }))
+            this.checkMonthlyFunding(isPrimary, createAccountDto.monthlyFunding ?? null, createAccountDto.monthlyFundingDay ?? null)
 
-            return manager.save(Account, { ...createAccountDto, userId, isPrimary: !hasAccount })
+            return manager.save(Account, { ...createAccountDto, userId, isPrimary })
         })
 
         return this.toDto(account)
@@ -45,6 +49,11 @@ export class AccountService {
 
     async update(userId: string, accountId: string, updateAccountDto: UpdateAccountDto): Promise<AccountResponseDto> {
         const account = await this.findUserAccount(this.accountRepository.manager, userId, accountId)
+        this.checkMonthlyFunding(
+            account.isPrimary!,
+            updateAccountDto.monthlyFunding !== undefined ? updateAccountDto.monthlyFunding : account.monthlyFunding ?? null,
+            updateAccountDto.monthlyFundingDay !== undefined ? updateAccountDto.monthlyFundingDay : account.monthlyFundingDay ?? null,
+        )
 
         await this.accountRepository.update(account.id!, { ...updateAccountDto })
 
@@ -73,7 +82,7 @@ export class AccountService {
             const account = await this.findUserAccount(manager, userId, accountId)
 
             await manager.update(Account, { userId, isPrimary: true }, { isPrimary: false })
-            await manager.update(Account, account.id!, { isPrimary: true })
+            await manager.update(Account, account.id!, NEW_PRIMARY_ACCOUNT)
 
             return manager.findOneByOrFail(Account, { id: account.id })
         })
@@ -92,12 +101,21 @@ export class AccountService {
                 const oldestAccount = await manager.findOne(Account, { where: { userId }, order: { createdAt: 'ASC' } })
 
                 if (oldestAccount) {
-                    await manager.update(Account, oldestAccount.id!, { isPrimary: true })
+                    await manager.update(Account, oldestAccount.id!, NEW_PRIMARY_ACCOUNT)
                 }
             }
         })
 
         return { message: SUCCESS_MESSAGES.ACCOUNT.ACCOUNT_DELETED }
+    }
+
+    private checkMonthlyFunding(isPrimary: boolean, monthlyFunding: number | null, monthlyFundingDay: number | null): void {
+        if (isPrimary && monthlyFunding !== null) {
+            throw new BadRequestException(ERRORS_MESSAGES.ACCOUNTS.PRIMARY_ACCOUNT_FUNDING)
+        }
+        if (monthlyFundingDay !== null && monthlyFunding === null) {
+            throw new BadRequestException(ERRORS_MESSAGES.ACCOUNTS.MONTHLY_FUNDING_REQUIRED)
+        }
     }
 
     private async lockUser(manager: EntityManager, userId: string, notFoundMessage: string): Promise<void> {
@@ -128,6 +146,8 @@ export class AccountService {
             country: account.country ?? null,
             initialBalance: account.initialBalance,
             isPrimary: account.isPrimary,
+            monthlyFunding: account.monthlyFunding ?? null,
+            monthlyFundingDay: account.monthlyFundingDay ?? null,
             createdAt: account.createdAt,
         }
     }

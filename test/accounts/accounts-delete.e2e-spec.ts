@@ -141,6 +141,18 @@ describe('DELETE accounts/:id', () => {
             expect(await accountRepository.findOneBy({ id: newestAccount.id })).toMatchObject({ isPrimary: false })
         })
 
+        it('should drop the monthly funding of the account becoming primary after a deletion', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const primaryAccount = await createAccount(ctx, user, { isPrimary: true })
+            const oldestAccount = await createAccount(ctx, user, { name: 'Dépenses courantes', monthlyFunding: 60000 })
+
+            await request(ctx.app.getHttpServer())
+                .delete(`/api/v1/accounts/${primaryAccount.id}`)
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            expect(await accountRepository.findOneBy({ id: oldestAccount.id })).toMatchObject({ isPrimary: true, monthlyFunding: null, monthlyFundingDay: null })
+        })
+
         it('should leave the user without account when deleting the last one', async () => {
             const { user, accessToken } = await createUserAndLogin(ctx)
             const account = await createAccount(ctx, user, { isPrimary: true })

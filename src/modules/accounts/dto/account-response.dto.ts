@@ -26,6 +26,12 @@ export class AccountResponseDto {
     @ApiProperty()
     isPrimary?: boolean;
 
+    @ApiProperty({ example: 60000, nullable: true, description: 'Fixed amount moved every month from the primary account to this one' })
+    monthlyFunding?: number | null;
+
+    @ApiProperty({ example: 28, nullable: true, description: 'Day of the monthly funding, null to follow the day of the main fixed income' })
+    monthlyFundingDay?: number | null;
+
     @ApiProperty()
     createdAt?: Date;
 }

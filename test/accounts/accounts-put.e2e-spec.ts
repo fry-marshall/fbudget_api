@@ -43,6 +43,8 @@ describe('PUT accounts/:id', () => {
                 id: account.id,
                 ...body,
                 isPrimary: true,
+                monthlyFunding: null,
+                monthlyFundingDay: null,
                 createdAt: account.createdAt!.toISOString(),
             })
             expect(await accountRepository.findOneBy({ id: account.id })).toMatchObject({ ...body, isPrimary: true })
@@ -93,6 +95,77 @@ describe('PUT accounts/:id', () => {
                 .send({ name: 'Renamed' })
 
             expect(await accountRepository.findOneBy({ id: otherAccount.id })).toMatchObject({ name: 'Other account' })
+        })
+    })
+
+    describe('Monthly funding', () => {
+        it('should set then stop the monthly funding of an account', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            await createAccount(ctx, user, { isPrimary: true })
+            const account = await createAccount(ctx, user, { name: 'Dépenses courantes' })
+
+            const setResponse = await request(ctx.app.getHttpServer())
+                .put(`/api/v1/accounts/${account.id}`)
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send({ monthlyFunding: 60000, monthlyFundingDay: 28 })
+            const stopResponse = await request(ctx.app.getHttpServer())
+                .put(`/api/v1/accounts/${account.id}`)
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send({ monthlyFunding: null, monthlyFundingDay: null })
+
+            expect(setResponse.statusCode).toBe(200)
+            expect(setResponse.body.data).toMatchObject({ monthlyFunding: 60000, monthlyFundingDay: 28 })
+            expect(stopResponse.statusCode).toBe(200)
+            expect(await accountRepository.findOneBy({ id: account.id })).toMatchObject({ monthlyFunding: null, monthlyFundingDay: null })
+        })
+
+        it('should throw bad request when the primary account gets a monthly funding', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const primaryAccount = await createAccount(ctx, user, { isPrimary: true })
+
+            const response = await request(ctx.app.getHttpServer())
+                .put(`/api/v1/accounts/${primaryAccount.id}`)
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send({ monthlyFunding: 60000 })
+
+            expect(response.statusCode).toBe(400)
+            expect(response.body.message).toBe(ERRORS_MESSAGES.ACCOUNTS.PRIMARY_ACCOUNT_FUNDING)
+            expect(await accountRepository.findOneBy({ id: primaryAccount.id })).toMatchObject({ monthlyFunding: null })
+        })
+
+        it.each([
+            ['the funding is removed but its day is kept', { monthlyFunding: 60000, monthlyFundingDay: 28 }, { monthlyFunding: null }],
+            ['a funding day is set without funding amount', {}, { monthlyFundingDay: 28 }],
+        ])('should throw bad request when %s', async (_, initial, body) => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            await createAccount(ctx, user, { isPrimary: true })
+            const account = await createAccount(ctx, user, { name: 'Dépenses courantes', ...initial })
+
+            const response = await request(ctx.app.getHttpServer())
+                .put(`/api/v1/accounts/${account.id}`)
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send(body)
+
+            expect(response.statusCode).toBe(400)
+            expect(response.body.message).toBe(ERRORS_MESSAGES.ACCOUNTS.MONTHLY_FUNDING_REQUIRED)
+        })
+
+        it.each([
+            ['monthlyFunding', 0],
+            ['monthlyFunding', 600.5],
+            ['monthlyFundingDay', 32],
+        ])('should throw bad request when %s is %p', async (field, value) => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            await createAccount(ctx, user, { isPrimary: true })
+            const account = await createAccount(ctx, user, { name: 'Dépenses courantes' })
+
+            const response = await request(ctx.app.getHttpServer())
+                .put(`/api/v1/accounts/${account.id}`)
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send({ monthlyFunding: 60000, [field]: value })
+
+            expect(response.statusCode).toBe(400)
+            expect(response.body.message).toBe(ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST)
         })
     })
 

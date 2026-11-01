@@ -56,6 +56,8 @@ describe('POST accounts', () => {
                 country: 'SN',
                         initialBalance: 87350,
                 isPrimary: true,
+                monthlyFunding: null,
+                monthlyFundingDay: null,
                 createdAt: accountCreated!.createdAt!.toISOString(),
             })
             expect(accountCreated).toMatchObject({ ...VALID_BODY, isPrimary: true })
@@ -135,6 +137,84 @@ describe('POST accounts', () => {
 
             expect(response.statusCode).toBe(201)
             expect(response.body.data.last4).toBe('0042')
+        })
+    })
+
+    describe('Monthly funding', () => {
+        it('should create an account funded every month from the primary account', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            await createAccount(ctx, user, { isPrimary: true })
+
+            const response = await request(ctx.app.getHttpServer())
+                .post('/api/v1/accounts')
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send({ ...VALID_BODY, name: 'Dépenses courantes', monthlyFunding: 60000, monthlyFundingDay: 28 })
+
+            expect(response.statusCode).toBe(201)
+            expect(response.body.data).toMatchObject({ isPrimary: false, monthlyFunding: 60000, monthlyFundingDay: 28 })
+        })
+
+        it('should follow the reference income day when no funding day is sent', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            await createAccount(ctx, user, { isPrimary: true })
+
+            const response = await request(ctx.app.getHttpServer())
+                .post('/api/v1/accounts')
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send({ ...VALID_BODY, monthlyFunding: 60000 })
+
+            expect(response.statusCode).toBe(201)
+            expect(response.body.data).toMatchObject({ monthlyFunding: 60000, monthlyFundingDay: null })
+        })
+
+        it('should throw bad request when the first account, which becomes primary, has a monthly funding', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+
+            const response = await request(ctx.app.getHttpServer())
+                .post('/api/v1/accounts')
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send({ ...VALID_BODY, monthlyFunding: 60000 })
+
+            expect(response.statusCode).toBe(400)
+            expect(response.body.message).toBe(ERRORS_MESSAGES.ACCOUNTS.PRIMARY_ACCOUNT_FUNDING)
+            expect(await accountRepository.countBy({ userId: user.id })).toEqual(0)
+        })
+
+        it('should throw bad request when a funding day is sent without funding amount', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            await createAccount(ctx, user, { isPrimary: true })
+
+            const response = await request(ctx.app.getHttpServer())
+                .post('/api/v1/accounts')
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send({ ...VALID_BODY, monthlyFundingDay: 28 })
+
+            expect(response.statusCode).toBe(400)
+            expect(response.body.message).toBe(ERRORS_MESSAGES.ACCOUNTS.MONTHLY_FUNDING_REQUIRED)
+            expect(await accountRepository.countBy({ userId: user.id })).toEqual(1)
+        })
+
+        it.each([
+            ['monthlyFunding', 0],
+            ['monthlyFunding', -60000],
+            ['monthlyFunding', 600.5],
+            ['monthlyFunding', '60000'],
+            ['monthlyFunding', 2147483648],
+            ['monthlyFundingDay', 0],
+            ['monthlyFundingDay', 32],
+            ['monthlyFundingDay', '28'],
+        ])('should throw bad request when %s is %p', async (field, value) => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            await createAccount(ctx, user, { isPrimary: true })
+
+            const response = await request(ctx.app.getHttpServer())
+                .post('/api/v1/accounts')
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send({ ...VALID_BODY, monthlyFunding: 60000, [field]: value })
+
+            expect(response.statusCode).toBe(400)
+            expect(response.body.message).toBe(ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST)
+            expect(await accountRepository.countBy({ userId: user.id })).toEqual(1)
         })
     })
 

@@ -1,6 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { NotFoundException } from "@nestjs/common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { DataSource } from "typeorm";
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { User } from "../users/user.entity";
@@ -55,6 +55,8 @@ describe('AccountService', () => {
         country: null,
         initialBalance: 150000,
         isPrimary: false,
+        monthlyFunding: null,
+        monthlyFundingDay: null,
         createdAt,
     }
     const createAccountDto = { type: AccountType.CARD, name: 'Visa *4782', initialBalance: 150000 }
@@ -174,6 +176,24 @@ describe('AccountService', () => {
         })
     })
 
+    describe('monthly funding', () => {
+        describe('Failure cases', () => {
+            it('should throw BadRequestException when the primary account gets a monthly funding', async () => {
+                managerMocked.findOne.mockResolvedValueOnce({ ...accountMocked, isPrimary: true })
+
+                await expect(accountService.update('user-id', 'account-id', { monthlyFunding: 60000 })).rejects.toThrow(new BadRequestException(ERRORS_MESSAGES.ACCOUNTS.PRIMARY_ACCOUNT_FUNDING))
+                expect(accountRepositoryMocked.update).not.toHaveBeenCalled()
+            })
+
+            it('should throw BadRequestException when the funding is removed but its day is kept', async () => {
+                managerMocked.findOne.mockResolvedValueOnce({ ...accountMocked, monthlyFunding: 60000, monthlyFundingDay: 28 })
+
+                await expect(accountService.update('user-id', 'account-id', { monthlyFunding: null })).rejects.toThrow(new BadRequestException(ERRORS_MESSAGES.ACCOUNTS.MONTHLY_FUNDING_REQUIRED))
+                expect(accountRepositoryMocked.update).not.toHaveBeenCalled()
+            })
+        })
+    })
+
     describe('getBalance', () => {
         const mockTransactionsTotal = (total: string) => {
             const queryBuilder = {
@@ -229,7 +249,7 @@ describe('AccountService', () => {
 
                 expect(response).toStrictEqual({ ...accountDto, isPrimary: true })
                 expect(managerMocked.update).toHaveBeenNthCalledWith(1, Account, { userId: 'user-id', isPrimary: true }, { isPrimary: false })
-                expect(managerMocked.update).toHaveBeenNthCalledWith(2, Account, 'account-id', { isPrimary: true })
+                expect(managerMocked.update).toHaveBeenNthCalledWith(2, Account, 'account-id', { isPrimary: true, monthlyFunding: null, monthlyFundingDay: null })
             })
         })
 
@@ -271,7 +291,7 @@ describe('AccountService', () => {
                 await accountService.remove('user-id', 'account-id')
 
                 expect(managerMocked.findOne).toHaveBeenLastCalledWith(Account, { where: { userId: 'user-id' }, order: { createdAt: 'ASC' } })
-                expect(managerMocked.update).toHaveBeenCalledWith(Account, 'oldest-id', { isPrimary: true })
+                expect(managerMocked.update).toHaveBeenCalledWith(Account, 'oldest-id', { isPrimary: true, monthlyFunding: null, monthlyFundingDay: null })
             })
 
             it('should not promote any account when deleting the last one', async () => {

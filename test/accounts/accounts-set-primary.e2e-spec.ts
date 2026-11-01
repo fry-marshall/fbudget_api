@@ -29,6 +29,19 @@ describe('PUT accounts/:id/set-primary', () => {
     })
 
     describe('Success cases', () => {
+        it('should drop the monthly funding of the account becoming primary', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            await createAccount(ctx, user, { isPrimary: true })
+            const account = await createAccount(ctx, user, { name: 'Dépenses courantes', monthlyFunding: 60000, monthlyFundingDay: 28 })
+
+            const response = await request(ctx.app.getHttpServer())
+                .put(`/api/v1/accounts/${account.id}/set-primary`)
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            expect(response.statusCode).toBe(200)
+            expect(response.body.data).toMatchObject({ isPrimary: true, monthlyFunding: null, monthlyFundingDay: null })
+        })
+
         it('should make the account primary and unset the previous primary account', async () => {
             const { user, accessToken } = await createUserAndLogin(ctx)
             const primaryAccount = await createAccount(ctx, user, { isPrimary: true })

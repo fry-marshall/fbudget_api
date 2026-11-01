@@ -16,7 +16,9 @@ export const ERRORS_MESSAGES = {
         PRIMARY_CURRENCY_ALREADY_SET: 'Primary currency is already set and cannot be changed',
     },
     ACCOUNTS: {
-        ACCOUNT_NOT_FOUND: 'Account not found'
+        ACCOUNT_NOT_FOUND: 'Account not found',
+        PRIMARY_ACCOUNT_FUNDING: 'The primary account cannot have a monthly funding, it funds the other accounts',
+        MONTHLY_FUNDING_REQUIRED: 'A monthly funding day requires a monthly funding amount',
     },
     CATEGORIES: {
         CATEGORY_NOT_FOUND: 'Category not found',

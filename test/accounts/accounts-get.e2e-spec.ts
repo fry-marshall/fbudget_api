@@ -51,6 +51,8 @@ describe('GET accounts', () => {
                     country: 'FR',
                     initialBalance: 150000,
                     isPrimary: true,
+                    monthlyFunding: null,
+                    monthlyFundingDay: null,
                     createdAt: card.createdAt!.toISOString(),
                 },
                 {
@@ -62,6 +64,8 @@ describe('GET accounts', () => {
                     country: 'SN',
                     initialBalance: 87350,
                     isPrimary: false,
+                    monthlyFunding: null,
+                    monthlyFundingDay: null,
                     createdAt: wave.createdAt!.toISOString(),
                 },
             ])

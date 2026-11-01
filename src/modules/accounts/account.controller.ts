@@ -40,25 +40,25 @@ export class AccountController {
     }
 
     @Post()
-    @ApiOperation({ summary: 'Create an account, the first one of the user becomes primary' })
+    @ApiOperation({ summary: 'Create an account, the first one of the user becomes primary, a monthlyFunding moves a fixed amount from the primary account every month' })
     @ApiSuccessResponse(AccountResponseDto, 201)
-    @ApiBadRequestResponse({ description: ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST, type: ErrorResponse })
+    @ApiBadRequestResponse({ description: `${ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST} | ${ERRORS_MESSAGES.ACCOUNTS.PRIMARY_ACCOUNT_FUNDING} | ${ERRORS_MESSAGES.ACCOUNTS.MONTHLY_FUNDING_REQUIRED}`, type: ErrorResponse })
     @ApiNotFoundResponse({ description: ERRORS_MESSAGES.AUTH.USER_NOT_FOUND, type: ErrorResponse })
     create(@CurrentUser() user: PayloadJwt, @Body() createAccountDto: CreateAccountDto): Promise<AccountResponseDto> {
         return this.accountService.create(user.id!, createAccountDto)
     }
 
     @Put(':id')
-    @ApiOperation({ summary: 'Update an account of the connected user' })
+    @ApiOperation({ summary: 'Update an account of the connected user, a monthlyFunding moves a fixed amount from the primary account every month' })
     @ApiSuccessResponse(AccountResponseDto)
-    @ApiBadRequestResponse({ description: ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST, type: ErrorResponse })
+    @ApiBadRequestResponse({ description: `${ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST} | ${ERRORS_MESSAGES.ACCOUNTS.PRIMARY_ACCOUNT_FUNDING} | ${ERRORS_MESSAGES.ACCOUNTS.MONTHLY_FUNDING_REQUIRED}`, type: ErrorResponse })
     @ApiNotFoundResponse({ description: ERRORS_MESSAGES.ACCOUNTS.ACCOUNT_NOT_FOUND, type: ErrorResponse })
     update(@CurrentUser() user: PayloadJwt, @Param('id', UuidParamPipe) id: string, @Body() updateAccountDto: UpdateAccountDto): Promise<AccountResponseDto> {
         return this.accountService.update(user.id!, id, updateAccountDto)
     }
 
     @Put(':id/set-primary')
-    @ApiOperation({ summary: 'Make an account the primary one of the connected user, the previous primary account is unset' })
+    @ApiOperation({ summary: 'Make an account the primary one of the connected user, the previous primary account is unset and the monthly funding of the new one is dropped' })
     @ApiSuccessResponse(AccountResponseDto)
     @ApiBadRequestResponse({ description: ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST, type: ErrorResponse })
     @ApiNotFoundResponse({ description: ERRORS_MESSAGES.ACCOUNTS.ACCOUNT_NOT_FOUND, type: ErrorResponse })
@@ -67,7 +67,7 @@ export class AccountController {
     }
 
     @Delete(':id')
-    @ApiOperation({ summary: 'Delete an account of the connected user, the oldest remaining account becomes primary if needed' })
+    @ApiOperation({ summary: 'Delete an account of the connected user, the oldest remaining account becomes primary if needed and loses its monthly funding' })
     @ApiSuccessResponse(MessageResponseDto)
     @ApiBadRequestResponse({ description: ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST, type: ErrorResponse })
     @ApiNotFoundResponse({ description: ERRORS_MESSAGES.ACCOUNTS.ACCOUNT_NOT_FOUND, type: ErrorResponse })
