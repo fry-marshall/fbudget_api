@@ -59,6 +59,7 @@ describe('GET transactions', () => {
                     tags: [],
                     sourceType: TransactionSourceType.MANUAL,
                     provisionId: null,
+                    installmentId: null,
                     createdAt: salary.createdAt!.toISOString(),
                 },
                 {
@@ -72,6 +73,7 @@ describe('GET transactions', () => {
                     tags: ['maison'],
                     sourceType: TransactionSourceType.MANUAL,
                     provisionId: null,
+                    installmentId: null,
                     createdAt: groceries.createdAt!.toISOString(),
                 },
             ])

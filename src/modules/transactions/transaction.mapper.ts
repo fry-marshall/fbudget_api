@@ -15,5 +15,6 @@ export const toTransactionDto = (transaction: Transaction): TransactionResponseD
     tags: transaction.tags ?? [],
     sourceType: transaction.sourceType,
     provisionId: transaction.provisionId ?? null,
+    installmentId: transaction.installmentId ?? null,
     createdAt: transaction.createdAt,
 })

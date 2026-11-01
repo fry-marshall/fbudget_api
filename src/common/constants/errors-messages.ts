@@ -35,5 +35,12 @@ export const ERRORS_MESSAGES = {
         PROVISION_NOT_FOUND: 'Provision not found',
         PROVISION_CANCELLED: 'Provision is cancelled and cannot be changed',
         ACCOUNT_REQUIRED: 'An account is required to settle a provision without account',
+    },
+    INSTALLMENT_PLANS: {
+        INSTALLMENT_PLAN_NOT_FOUND: 'Installment plan not found',
+        INSTALLMENT_PLAN_CANCELLED: 'Installment plan is cancelled and cannot be changed',
+        INSTALLMENT_NOT_FOUND: 'Installment not found',
+        INSTALLMENT_ALREADY_PAID: 'Installment is already paid',
+        ACCOUNT_REQUIRED: 'An account is required to pay an installment of a plan without account',
     }
 }

@@ -4,10 +4,11 @@ import { CategoryType } from "src/modules/categories/types";
 import { FixedCharge } from "src/modules/fixed-charges/fixed-charge.entity";
 import { Transaction } from "src/modules/transactions/transaction.entity";
 import { Provision } from "src/modules/provisions/provision.entity";
+import { InstallmentPlan } from "src/modules/installment-plans/installment-plan.entity";
 import request from 'supertest';
 import { Repository } from "typeorm";
 import { resetDatabase } from "../utils/database";
-import { createAccount, createCategory, createFixedCharge, createProvision, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { createAccount, createCategory, createFixedCharge, createInstallmentPlan, createProvision, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('DELETE categories/:id', () => {
@@ -83,6 +84,19 @@ describe('DELETE categories/:id', () => {
 
             expect(response.statusCode).toBe(200)
             expect(await ctx.repo(Provision).findOneBy({ id: provision.id })).toMatchObject({ categoryId: null, label: 'Assurance auto' })
+        })
+
+        it('should keep the installment plans of the category without category', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const category = await createCategory(ctx, user)
+            const plan = await createInstallmentPlan(ctx, user, { categoryId: category.id })
+
+            const response = await request(ctx.app.getHttpServer())
+                .delete(`/api/v1/categories/${category.id}`)
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            expect(response.statusCode).toBe(200)
+            expect(await ctx.repo(InstallmentPlan).findOneBy({ id: plan.id })).toMatchObject({ categoryId: null, label: 'iPhone 15' })
         })
 
         it('should allow to create again a category of the deleted type', async () => {

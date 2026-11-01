@@ -5,6 +5,8 @@ import { Income } from "src/modules/incomes/income.entity";
 import { FixedCharge } from "src/modules/fixed-charges/fixed-charge.entity";
 import { Transaction } from "src/modules/transactions/transaction.entity";
 import { Provision } from "src/modules/provisions/provision.entity";
+import { InstallmentPlan } from "src/modules/installment-plans/installment-plan.entity";
+import { Installment } from "src/modules/installment-plans/installment.entity";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
 import { Settings } from "src/modules/settings/settings.entity";
 import { AccountType } from "src/modules/accounts/types";
@@ -14,7 +16,7 @@ import { Repository } from "typeorm";
 import request from 'supertest'
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { resetDatabase } from "../utils/database";
-import { createAccount, createCategory, createFixedCharge, createIncome, createProvision, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { createAccount, createCategory, createFixedCharge, createIncome, createInstallmentPlan, createProvision, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('DELETE users/me', () => {
@@ -77,6 +79,8 @@ describe('DELETE users/me', () => {
             await createIncome(ctx, user)
             await createFixedCharge(ctx, user)
             const provision = await createProvision(ctx, user)
+            const plan = await createInstallmentPlan(ctx, user)
+            await createTransaction(ctx, user, account, { installmentId: plan.installments[0].id })
             await createTransaction(ctx, user, account, { provisionId: provision.id })
 
             await request(ctx.app.getHttpServer())
@@ -94,6 +98,8 @@ describe('DELETE users/me', () => {
             expect(await fixedChargeRepository.count()).toEqual(0)
             expect(await transactionRepository.count()).toEqual(0)
             expect(await provisionRepository.count()).toEqual(0)
+            expect(await ctx.repo(InstallmentPlan).count()).toEqual(0)
+            expect(await ctx.repo(Installment).count()).toEqual(0)
         })
 
         it('should keep the data of other users', async () => {
@@ -105,6 +111,7 @@ describe('DELETE users/me', () => {
             await createFixedCharge(ctx, otherUser)
             await createTransaction(ctx, otherUser, otherAccount)
             await createProvision(ctx, otherUser)
+            await createInstallmentPlan(ctx, otherUser)
 
             await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
@@ -119,6 +126,8 @@ describe('DELETE users/me', () => {
             expect(await fixedChargeRepository.countBy({ userId: otherUser.id })).toEqual(1)
             expect(await transactionRepository.countBy({ userId: otherUser.id })).toEqual(1)
             expect(await provisionRepository.countBy({ userId: otherUser.id })).toEqual(1)
+            expect(await ctx.repo(InstallmentPlan).countBy({ userId: otherUser.id })).toEqual(1)
+            expect(await ctx.repo(Installment).count()).toEqual(4)
         })
 
         it('should allow to sign up again with the email of a deleted user', async () => {

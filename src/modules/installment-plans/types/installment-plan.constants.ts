@@ -1,0 +1,2 @@
+export const MIN_INSTALLMENT_COUNT = 2
+export const MAX_INSTALLMENT_COUNT = 60

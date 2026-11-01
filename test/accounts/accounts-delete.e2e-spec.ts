@@ -4,11 +4,12 @@ import { Income } from "src/modules/incomes/income.entity";
 import { FixedCharge } from "src/modules/fixed-charges/fixed-charge.entity";
 import { Transaction } from "src/modules/transactions/transaction.entity";
 import { Provision } from "src/modules/provisions/provision.entity";
+import { InstallmentPlan } from "src/modules/installment-plans/installment-plan.entity";
 import { User } from "src/modules/users/user.entity";
 import request from 'supertest';
 import { Repository } from "typeorm";
 import { resetDatabase } from "../utils/database";
-import { createAccount, createFixedCharge, createIncome, createProvision, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { createAccount, createFixedCharge, createIncome, createInstallmentPlan, createProvision, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('DELETE accounts/:id', () => {
@@ -97,6 +98,19 @@ describe('DELETE accounts/:id', () => {
 
             expect(response.statusCode).toBe(200)
             expect(await ctx.repo(Provision).findOneBy({ id: provision.id })).toMatchObject({ accountId: null, label: 'Assurance auto' })
+        })
+
+        it('should keep the installment plans of the account without account', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const account = await createAccount(ctx, user)
+            const plan = await createInstallmentPlan(ctx, user, { accountId: account.id })
+
+            const response = await request(ctx.app.getHttpServer())
+                .delete(`/api/v1/accounts/${account.id}`)
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            expect(response.statusCode).toBe(200)
+            expect(await ctx.repo(InstallmentPlan).findOneBy({ id: plan.id })).toMatchObject({ accountId: null, label: 'iPhone 15' })
         })
 
         it('should keep the primary account when deleting a secondary account', async () => {

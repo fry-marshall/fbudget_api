@@ -32,6 +32,9 @@ export class TransactionResponseDto {
     @ApiProperty({ format: 'uuid', nullable: true, description: 'Provision settled by this transaction' })
     provisionId?: string | null;
 
+    @ApiProperty({ format: 'uuid', nullable: true, description: 'Installment paid by this transaction' })
+    installmentId?: string | null;
+
     @ApiProperty()
     createdAt?: Date;
 }

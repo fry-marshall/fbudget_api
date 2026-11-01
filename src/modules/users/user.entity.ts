@@ -9,6 +9,7 @@ import { Income } from "../incomes/income.entity";
 import { FixedCharge } from "../fixed-charges/fixed-charge.entity";
 import { Transaction } from "../transactions/transaction.entity";
 import { Provision } from "../provisions/provision.entity";
+import { InstallmentPlan } from "../installment-plans/installment-plan.entity";
 
 @Entity('users')
 @Index('UQ_users_email', ['email'], { unique: true })
@@ -66,4 +67,7 @@ export class User extends AbstractEntity {
 
     @OneToMany(() => Provision, (provision) => provision.user)
     provisions?: Provision[]
+
+    @OneToMany(() => InstallmentPlan, (installmentPlan) => installmentPlan.user)
+    installmentPlans?: InstallmentPlan[]
 }

@@ -24,4 +24,7 @@ export const SUCCESS_MESSAGES = {
     PROVISION: {
         PROVISION_DELETED: 'Provision deleted successfully'
     },
+    INSTALLMENT_PLAN: {
+        INSTALLMENT_PLAN_DELETED: 'Installment plan deleted successfully'
+    },
 }

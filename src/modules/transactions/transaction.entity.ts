@@ -5,12 +5,14 @@ import { Account } from "../accounts/account.entity";
 import { Category } from "../categories/category.entity";
 import { TransactionSourceType } from "./types";
 import { Provision } from "../provisions/provision.entity";
+import { Installment } from "../installment-plans/installment.entity";
 
 @Entity('transactions')
 @Index('IDX_transactions_user_occurred_on', ['userId', 'occurredOn'])
 @Index('IDX_transactions_account_occurred_on', ['accountId', 'occurredOn'])
 @Index('IDX_transactions_category_occurred_on', ['categoryId', 'occurredOn'])
 @Index('IDX_transactions_provision', ['provisionId'])
+@Index('UQ_transactions_installment', ['installmentId'], { unique: true })
 export class Transaction extends AbstractEntity {
     @Column({ type: 'int' })
     amount?: number;
@@ -52,6 +54,14 @@ export class Transaction extends AbstractEntity {
     @ManyToOne(() => Provision, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'provisionId' })
     provision?: Provision | null;
+
+    // Set by the server when the transaction pays an installment, unique so that an installment is paid once
+    @Column({ type: 'uuid', nullable: true })
+    installmentId?: string | null;
+
+    @ManyToOne(() => Installment, { onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'installmentId' })
+    installment?: Installment | null;
 
     @Column()
     userId?: string;

@@ -71,6 +71,7 @@ describe('POST provisions/:id/settle', () => {
                     tags: [],
                     sourceType: TransactionSourceType.PROVISION,
                     provisionId: provision.id,
+                    installmentId: null,
                     createdAt: transactionCreated!.createdAt!.toISOString(),
                 },
             })

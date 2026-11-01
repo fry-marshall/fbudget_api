@@ -8,6 +8,9 @@ import { Income } from "src/modules/incomes/income.entity";
 import { FixedCharge } from "src/modules/fixed-charges/fixed-charge.entity";
 import { Transaction } from "src/modules/transactions/transaction.entity";
 import { Provision } from "src/modules/provisions/provision.entity";
+import { InstallmentPlan } from "src/modules/installment-plans/installment-plan.entity";
+import { Installment } from "src/modules/installment-plans/installment.entity";
+import { buildInstallments } from "src/modules/installment-plans/installment-plan.helpers";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
 import { AuthProvider } from "src/modules/users/types";
 import { User } from "src/modules/users/user.entity";
@@ -154,3 +157,23 @@ export const createProvision = (ctx: TestContext, user: User, overrides: DeepPar
     userId: user.id,
     ...overrides
 })
+
+/**
+ * Save an installment plan with its generated installments, ordered by index
+ */
+export const createInstallmentPlan = async (ctx: TestContext, user: User, overrides: DeepPartial<InstallmentPlan> = {}): Promise<InstallmentPlan & { installments: Installment[] }> => {
+    const plan = await ctx.repo(InstallmentPlan).save({
+        label: 'iPhone 15',
+        provider: 'Klarna',
+        totalAmount: 75000,
+        installmentCount: 4,
+        firstDueDate: '2026-11-15',
+        userId: user.id,
+        ...overrides
+    })
+    const installments = await ctx.repo(Installment).save(
+        buildInstallments(plan.totalAmount!, plan.installmentCount!, plan.firstDueDate!).map((installment) => ({ ...installment, planId: plan.id }))
+    )
+
+    return { ...plan, installments }
+}
