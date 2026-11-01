@@ -27,4 +27,7 @@ export const SUCCESS_MESSAGES = {
     INSTALLMENT_PLAN: {
         INSTALLMENT_PLAN_DELETED: 'Installment plan deleted successfully'
     },
+    SAVINGS_GOAL: {
+        SAVINGS_GOAL_DELETED: 'Savings goal deleted successfully'
+    },
 }

@@ -10,6 +10,7 @@ import { FixedCharge } from "../fixed-charges/fixed-charge.entity";
 import { Transaction } from "../transactions/transaction.entity";
 import { Provision } from "../provisions/provision.entity";
 import { InstallmentPlan } from "../installment-plans/installment-plan.entity";
+import { SavingsGoal } from "../savings-goals/savings-goal.entity";
 
 @Entity('users')
 @Index('UQ_users_email', ['email'], { unique: true })
@@ -70,4 +71,7 @@ export class User extends AbstractEntity {
 
     @OneToMany(() => InstallmentPlan, (installmentPlan) => installmentPlan.user)
     installmentPlans?: InstallmentPlan[]
+
+    @OneToMany(() => SavingsGoal, (savingsGoal) => savingsGoal.user)
+    savingsGoals?: SavingsGoal[]
 }

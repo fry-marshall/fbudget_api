@@ -35,6 +35,9 @@ export class TransactionResponseDto {
     @ApiProperty({ format: 'uuid', nullable: true, description: 'Installment paid by this transaction' })
     installmentId?: string | null;
 
+    @ApiProperty({ format: 'uuid', nullable: true, description: 'Savings goal this transaction contributes to' })
+    savingsGoalId?: string | null;
+
     @ApiProperty()
     createdAt?: Date;
 }

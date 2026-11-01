@@ -42,5 +42,10 @@ export const ERRORS_MESSAGES = {
         INSTALLMENT_NOT_FOUND: 'Installment not found',
         INSTALLMENT_ALREADY_PAID: 'Installment is already paid',
         ACCOUNT_REQUIRED: 'An account is required to pay an installment of a plan without account',
+    },
+    SAVINGS_GOALS: {
+        SAVINGS_GOAL_NOT_FOUND: 'Savings goal not found',
+        TARGET_AMOUNT_REQUIRED: 'A target date requires a target amount',
+        ACCOUNT_REQUIRED: 'An account is required to contribute to a savings goal without account',
     }
 }

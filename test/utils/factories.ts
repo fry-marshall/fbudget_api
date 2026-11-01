@@ -11,6 +11,7 @@ import { Provision } from "src/modules/provisions/provision.entity";
 import { InstallmentPlan } from "src/modules/installment-plans/installment-plan.entity";
 import { Installment } from "src/modules/installment-plans/installment.entity";
 import { buildInstallments } from "src/modules/installment-plans/installment-plan.helpers";
+import { SavingsGoal } from "src/modules/savings-goals/savings-goal.entity";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
 import { AuthProvider } from "src/modules/users/types";
 import { User } from "src/modules/users/user.entity";
@@ -177,3 +178,12 @@ export const createInstallmentPlan = async (ctx: TestContext, user: User, overri
 
     return { ...plan, installments }
 }
+
+export const createSavingsGoal = (ctx: TestContext, user: User, overrides: DeepPartial<SavingsGoal> = {}): Promise<SavingsGoal> => ctx.repo(SavingsGoal).save({
+    label: 'Apport voiture',
+    targetAmount: 300000,
+    monthlyContribution: 20000,
+    targetDate: '2027-10-01',
+    userId: user.id,
+    ...overrides
+})

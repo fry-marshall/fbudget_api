@@ -6,6 +6,7 @@ import { Category } from "../categories/category.entity";
 import { TransactionSourceType } from "./types";
 import { Provision } from "../provisions/provision.entity";
 import { Installment } from "../installment-plans/installment.entity";
+import { SavingsGoal } from "../savings-goals/savings-goal.entity";
 
 @Entity('transactions')
 @Index('IDX_transactions_user_occurred_on', ['userId', 'occurredOn'])
@@ -13,6 +14,7 @@ import { Installment } from "../installment-plans/installment.entity";
 @Index('IDX_transactions_category_occurred_on', ['categoryId', 'occurredOn'])
 @Index('IDX_transactions_provision', ['provisionId'])
 @Index('UQ_transactions_installment', ['installmentId'], { unique: true })
+@Index('IDX_transactions_savings_goal', ['savingsGoalId'])
 export class Transaction extends AbstractEntity {
     @Column({ type: 'int' })
     amount?: number;
@@ -62,6 +64,14 @@ export class Transaction extends AbstractEntity {
     @ManyToOne(() => Installment, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'installmentId' })
     installment?: Installment | null;
+
+    // Set by the server when the transaction is a contribution to a savings goal, kept null when the goal is deleted
+    @Column({ type: 'uuid', nullable: true })
+    savingsGoalId?: string | null;
+
+    @ManyToOne(() => SavingsGoal, { onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'savingsGoalId' })
+    savingsGoal?: SavingsGoal | null;
 
     @Column()
     userId?: string;

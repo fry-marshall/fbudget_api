@@ -48,6 +48,7 @@ describe('PUT transactions/:id', () => {
                 sourceType: TransactionSourceType.MANUAL,
                 provisionId: null,
                 installmentId: null,
+                savingsGoalId: null,
                 createdAt: transaction.createdAt!.toISOString(),
             })
             expect(await transactionRepository.findOneBy({ id: transaction.id })).toMatchObject(body)
@@ -142,6 +143,7 @@ describe('PUT transactions/:id', () => {
             ['sourceType', TransactionSourceType.PROVISION],
             ['provisionId', UNKNOWN_ID],
             ['installmentId', UNKNOWN_ID],
+            ['savingsGoalId', UNKNOWN_ID],
             ['userId', UNKNOWN_ID],
             ['id', UNKNOWN_ID],
         ])('should throw bad request when %s is %p', async (field, value) => {

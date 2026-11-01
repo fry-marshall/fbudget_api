@@ -52,6 +52,7 @@ describe('TransactionService', () => {
         sourceType: TransactionSourceType.MANUAL,
         provisionId: null,
         installmentId: null,
+        savingsGoalId: null,
         createdAt,
     }
     const createBody = { amount: -4250, occurredOn: '2026-10-15', accountId: 'account-id' }

@@ -7,6 +7,8 @@ import { Transaction } from "src/modules/transactions/transaction.entity";
 import { Provision } from "src/modules/provisions/provision.entity";
 import { InstallmentPlan } from "src/modules/installment-plans/installment-plan.entity";
 import { Installment } from "src/modules/installment-plans/installment.entity";
+import { SavingsGoal } from "src/modules/savings-goals/savings-goal.entity";
+import { TransactionSourceType } from "src/modules/transactions/types";
 import { RefreshToken } from "src/modules/refresh-tokens/refresh-token.entity";
 import { Settings } from "src/modules/settings/settings.entity";
 import { AccountType } from "src/modules/accounts/types";
@@ -16,7 +18,7 @@ import { Repository } from "typeorm";
 import request from 'supertest'
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { resetDatabase } from "../utils/database";
-import { createAccount, createCategory, createFixedCharge, createIncome, createInstallmentPlan, createProvision, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { createAccount, createCategory, createFixedCharge, createIncome, createInstallmentPlan, createProvision, createSavingsGoal, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('DELETE users/me', () => {
@@ -82,6 +84,9 @@ describe('DELETE users/me', () => {
             const plan = await createInstallmentPlan(ctx, user)
             await createTransaction(ctx, user, account, { installmentId: plan.installments[0].id })
             await createTransaction(ctx, user, account, { provisionId: provision.id })
+            const savingsGoal = await createSavingsGoal(ctx, user, { accountId: account.id })
+            await createSavingsGoal(ctx, user, { label: 'Livret A', targetAmount: null, targetDate: null })
+            await createTransaction(ctx, user, account, { sourceType: TransactionSourceType.SAVINGS, savingsGoalId: savingsGoal.id })
 
             await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
@@ -100,6 +105,7 @@ describe('DELETE users/me', () => {
             expect(await provisionRepository.count()).toEqual(0)
             expect(await ctx.repo(InstallmentPlan).count()).toEqual(0)
             expect(await ctx.repo(Installment).count()).toEqual(0)
+            expect(await ctx.repo(SavingsGoal).count()).toEqual(0)
         })
 
         it('should keep the data of other users', async () => {
@@ -112,6 +118,7 @@ describe('DELETE users/me', () => {
             await createTransaction(ctx, otherUser, otherAccount)
             await createProvision(ctx, otherUser)
             await createInstallmentPlan(ctx, otherUser)
+            await createSavingsGoal(ctx, otherUser)
 
             await request(ctx.app.getHttpServer())
                 .delete('/api/v1/users/me')
@@ -128,6 +135,7 @@ describe('DELETE users/me', () => {
             expect(await provisionRepository.countBy({ userId: otherUser.id })).toEqual(1)
             expect(await ctx.repo(InstallmentPlan).countBy({ userId: otherUser.id })).toEqual(1)
             expect(await ctx.repo(Installment).count()).toEqual(4)
+            expect(await ctx.repo(SavingsGoal).countBy({ userId: otherUser.id })).toEqual(1)
         })
 
         it('should allow to sign up again with the email of a deleted user', async () => {
