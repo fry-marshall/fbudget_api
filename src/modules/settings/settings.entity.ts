@@ -8,9 +8,6 @@ export class Settings extends AbstractEntity {
     @Column({ type: 'enum', nullable: true, enum: Currency })
     primaryCurrency?: Currency | null;
 
-    @Column({ type: 'int', nullable: true })
-    monthlyBudget?: number;
-
     @OneToOne(() => User, (user) => user.settings, { onDelete: 'CASCADE' })
     @JoinColumn()
     user?: User;

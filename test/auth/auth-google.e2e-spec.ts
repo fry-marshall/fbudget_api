@@ -50,7 +50,6 @@ describe("POST auth/google", () => {
                     authProviders: true,
                     settings: {
                         id: true,
-                        monthlyBudget: true,
                         primaryCurrency: true,
                     }
                 },
@@ -63,7 +62,6 @@ describe("POST auth/google", () => {
             expect(response.body.data.refreshToken).toBeTruthy()
             expect(user?.email).toBe(userEmail)
             expect(user?.authProviders).toContain(AuthProvider.GOOGLE)
-            expect(user?.settings?.monthlyBudget).toBeFalsy()
             expect(user?.settings?.primaryCurrency).toBeNull()
         })
 
@@ -88,7 +86,6 @@ describe("POST auth/google", () => {
                     authProviders: true,
                     settings: {
                         id: true,
-                        monthlyBudget: true,
                         primaryCurrency: true,
                     }
                 },
@@ -103,7 +100,6 @@ describe("POST auth/google", () => {
             expect(user?.email).toBe(userEmail)
             expect(user?.authProviders).toContain(AuthProvider.GOOGLE)
             expect(user?.authProviders).toContain(AuthProvider.EMAIL)
-            expect(user?.settings?.monthlyBudget).toBeFalsy()
             expect(user?.settings?.primaryCurrency).toBeNull()
         })
     })

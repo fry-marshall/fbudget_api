@@ -65,7 +65,6 @@ describe('PUT users/me', () => {
                 settings: {
                     id: user.settings!.id,
                     primaryCurrency: null,
-                    monthlyBudget: null,
                 },
                 createdAt: user.createdAt!.toISOString()
             })

@@ -51,7 +51,6 @@ export class SettingsService {
         return {
             id: settings.id,
             primaryCurrency: settings.primaryCurrency,
-            monthlyBudget: settings.monthlyBudget
         }
     }
 }

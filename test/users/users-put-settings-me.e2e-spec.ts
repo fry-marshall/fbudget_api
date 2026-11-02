@@ -14,8 +14,8 @@ describe('PUT users/me/settings', () => {
     let userRepository: Repository<User>;
     let settingsRepository: Repository<Settings>;
 
-    const DEFAULT_SETTINGS = { primaryCurrency: null, monthlyBudget: null }
-    const VALID_BODY = { primaryCurrency: Currency.XOF, monthlyBudget: 1500 }
+    const DEFAULT_SETTINGS = { primaryCurrency: null }
+    const VALID_BODY = { primaryCurrency: Currency.XOF }
 
     beforeAll(async () => {
         ctx = await createTestApp()
@@ -58,31 +58,18 @@ describe('PUT users/me/settings', () => {
             expect(await settingsRepository.findOneBy({ id: user.settings!.id })).toMatchObject({ primaryCurrency: currency })
         })
 
-        it.each([0, 2147483647])('should accept %p as monthlyBudget', async (monthlyBudget) => {
+        it('should accept the same primary currency once it is set', async () => {
             const { user, accessToken } = await createUserAndLogin(ctx)
+            await settingsRepository.update(user.settings!.id!, { primaryCurrency: Currency.XOF })
 
             const response = await request(ctx.app.getHttpServer())
                 .put('/api/v1/users/me/settings')
                 .set('Authorization', `Bearer ${accessToken}`)
-                .send({ ...VALID_BODY, monthlyBudget })
+                .send({ primaryCurrency: Currency.XOF })
 
             expect(response.statusCode).toBe(200)
-            expect(response.body.data.monthlyBudget).toBe(monthlyBudget)
-            expect(await settingsRepository.findOneBy({ id: user.settings!.id })).toMatchObject({ monthlyBudget })
-        })
-
-        it('should accept the same primary currency once it is set and update the monthly budget', async () => {
-            const { user, accessToken } = await createUserAndLogin(ctx)
-            await settingsRepository.update(user.settings!.id!, { primaryCurrency: Currency.XOF, monthlyBudget: 1500 })
-
-            const response = await request(ctx.app.getHttpServer())
-                .put('/api/v1/users/me/settings')
-                .set('Authorization', `Bearer ${accessToken}`)
-                .send({ primaryCurrency: Currency.XOF, monthlyBudget: 3000 })
-
-            expect(response.statusCode).toBe(200)
-            expect(response.body.data).toStrictEqual({ id: user.settings!.id, primaryCurrency: Currency.XOF, monthlyBudget: 3000 })
-            expect(await settingsRepository.findOneBy({ id: user.settings!.id })).toMatchObject({ primaryCurrency: Currency.XOF, monthlyBudget: 3000 })
+            expect(response.body.data).toStrictEqual({ id: user.settings!.id, primaryCurrency: Currency.XOF })
+            expect(await settingsRepository.findOneBy({ id: user.settings!.id })).toMatchObject({ primaryCurrency: Currency.XOF })
         })
 
         it('should not expose sensitive fields', async () => {
@@ -120,8 +107,7 @@ describe('PUT users/me/settings', () => {
 
     describe('Failure cases', () => {
         it.each([
-            ['primaryCurrency is missing', { monthlyBudget: 1500 }],
-            ['monthlyBudget is missing', { primaryCurrency: Currency.XOF }],
+            ['an unknown field is sent', { primaryCurrency: Currency.XOF, monthlyBudget: 1500 }],
             ['body is empty', {}],
         ])('should throw bad request when %s', async (_, body) => {
             const { user, accessToken } = await createUserAndLogin(ctx)
@@ -143,12 +129,6 @@ describe('PUT users/me/settings', () => {
             ['primaryCurrency', 123],
             ['primaryCurrency', ''],
             ['primaryCurrency', null],
-            ['monthlyBudget', '1500'],
-            ['monthlyBudget', 15.5],
-            ['monthlyBudget', -100],
-            ['monthlyBudget', 2147483648],
-            ['monthlyBudget', true],
-            ['monthlyBudget', null],
         ])('should throw bad request when %s is %p', async (field, value) => {
             const { user, accessToken } = await createUserAndLogin(ctx)
 
@@ -164,16 +144,16 @@ describe('PUT users/me/settings', () => {
 
         it('should throw bad request and change nothing when changing an already set primary currency', async () => {
             const { user, accessToken } = await createUserAndLogin(ctx)
-            await settingsRepository.update(user.settings!.id!, { primaryCurrency: Currency.XOF, monthlyBudget: 1500 })
+            await settingsRepository.update(user.settings!.id!, { primaryCurrency: Currency.XOF })
 
             const response = await request(ctx.app.getHttpServer())
                 .put('/api/v1/users/me/settings')
                 .set('Authorization', `Bearer ${accessToken}`)
-                .send({ primaryCurrency: Currency.EUR, monthlyBudget: 3000 })
+                .send({ primaryCurrency: Currency.EUR })
 
             expect(response.statusCode).toBe(400)
             expect(response.body.message).toBe(ERRORS_MESSAGES.SETTINGS.PRIMARY_CURRENCY_ALREADY_SET)
-            expect(await settingsRepository.findOneBy({ id: user.settings!.id })).toMatchObject({ primaryCurrency: Currency.XOF, monthlyBudget: 1500 })
+            expect(await settingsRepository.findOneBy({ id: user.settings!.id })).toMatchObject({ primaryCurrency: Currency.XOF })
         })
 
         it('should set only one primary currency when setting different currencies in parallel', async () => {
@@ -182,7 +162,7 @@ describe('PUT users/me/settings', () => {
             const responses = await Promise.all([Currency.EUR, Currency.XOF].map((primaryCurrency) => request(ctx.app.getHttpServer())
                 .put('/api/v1/users/me/settings')
                 .set('Authorization', `Bearer ${accessToken}`)
-                .send({ primaryCurrency, monthlyBudget: 1500 })
+                .send({ primaryCurrency })
             ))
 
             const settings = await settingsRepository.findOneBy({ id: user.settings!.id })

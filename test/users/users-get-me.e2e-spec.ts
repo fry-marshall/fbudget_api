@@ -48,7 +48,6 @@ describe('GET users/me', () => {
                 settings: {
                     id: user.settings!.id,
                     primaryCurrency: null,
-                    monthlyBudget: null,
                 },
                 createdAt: user.createdAt!.toISOString()
             })
@@ -72,7 +71,7 @@ describe('GET users/me', () => {
 
         it('should return updated settings', async () => {
             const { user, accessToken } = await createUserAndLogin(ctx)
-            await settingsRepository.update(user.settings!.id!, { primaryCurrency: Currency.XOF, monthlyBudget: 1500 })
+            await settingsRepository.update(user.settings!.id!, { primaryCurrency: Currency.XOF })
 
             const response = await request(ctx.app.getHttpServer())
                 .get('/api/v1/users/me')
@@ -82,7 +81,6 @@ describe('GET users/me', () => {
             expect(response.body.data.settings).toStrictEqual({
                 id: user.settings!.id,
                 primaryCurrency: Currency.XOF,
-                monthlyBudget: 1500,
             })
         })
     })

@@ -31,7 +31,6 @@ export class UserService {
                 settings: {
                     id: true,
                     primaryCurrency: true,
-                    monthlyBudget: true,
                 },
                 createdAt: true
             },
@@ -92,7 +91,6 @@ export class UserService {
                 settings: {
                     id: true,
                     primaryCurrency: true,
-                    monthlyBudget: true,
                 }
             },
             relations: {
@@ -124,7 +122,6 @@ export class UserService {
             settings: {
                 id: user.settings?.id,
                 primaryCurrency: user.settings?.primaryCurrency,
-                monthlyBudget: user.settings?.monthlyBudget,
             },
             createdAt: user.createdAt
         }
