@@ -70,7 +70,7 @@ export class InstallmentPlanController {
     }
 
     @Post(':id/installments/:installmentId/pay')
-    @ApiOperation({ summary: 'Pay an installment: create the expense transaction with sourceType installment' })
+    @ApiOperation({ summary: 'Pay an installment: confirm its pending transaction generated for the month with the day and account sent, or create the expense transaction with sourceType installment' })
     @ApiSuccessResponse(PayInstallmentResponseDto, 201)
     @ApiBadRequestResponse({ description: `${ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST} | ${ERRORS_MESSAGES.INSTALLMENT_PLANS.ACCOUNT_REQUIRED}`, type: ErrorResponse })
     @ApiNotFoundResponse({ description: `${ERRORS_MESSAGES.INSTALLMENT_PLANS.INSTALLMENT_PLAN_NOT_FOUND} | ${ERRORS_MESSAGES.INSTALLMENT_PLANS.INSTALLMENT_NOT_FOUND} | ${ERRORS_MESSAGES.ACCOUNTS.ACCOUNT_NOT_FOUND}`, type: ErrorResponse })

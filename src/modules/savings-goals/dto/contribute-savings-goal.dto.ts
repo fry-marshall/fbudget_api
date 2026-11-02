@@ -15,7 +15,7 @@ export class ContributeSavingsGoalDto {
     @IsDateOnly()
     occurredOn?: string;
 
-    @ApiPropertyOptional({ format: 'uuid', description: 'Account of the connected user debited, the account of the savings goal by default' })
+    @ApiPropertyOptional({ format: 'uuid', description: 'Account of the connected user debited, the primary account by default, must differ from the account of the savings goal' })
     @ValidateIf((_, value) => value !== undefined)
     @IsUUID()
     accountId?: string;

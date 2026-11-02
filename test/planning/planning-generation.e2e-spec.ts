@@ -153,6 +153,20 @@ describe('Planning generation', () => {
             expect(await transactionRepository.findOneBy({ provisionId: provision.id })).toEqual(expect.objectContaining({ amount: -70000, occurredOn: '2026-11-20', sourceType: TransactionSourceType.PROVISION }))
         })
 
+        it('should move the next due date of a provision forward once its payment is generated', async () => {
+            const { user } = await createUserAndLogin(ctx)
+            const primary = await createAccount(ctx, user, { isPrimary: true, createdAt })
+            const provisionsAccount = await createAccount(ctx, user, { name: 'Provisions', createdAt })
+            const provision = await createProvision(ctx, user, { accountId: provisionsAccount.id, nextDueDate: '2026-11-15', startedAt: '2026-01-01', createdAt })
+
+            await planningService.generateForUser(user.id!, today)
+
+            expect(await transactionRepository.findOneBy({ provisionId: provision.id, sourceType: TransactionSourceType.PROVISION })).toEqual(expect.objectContaining({ amount: -70000, occurredOn: '2026-11-15', accountId: provisionsAccount.id, status: TransactionStatus.PENDING }))
+            expect(await transactionRepository.countBy({ provisionId: provision.id, sourceType: TransactionSourceType.TRANSFER })).toEqual(2)
+            expect(await ctx.repo(Provision).findOneBy({ id: provision.id })).toEqual(expect.objectContaining({ nextDueDate: '2027-11-15', lastGeneratedMonth: '2026-11' }))
+            expect(await transactionRepository.countBy({ accountId: primary.id })).toEqual(1)
+        })
+
         it('should not generate an installment already paid', async () => {
             const { user } = await createUserAndLogin(ctx)
             const primary = await createAccount(ctx, user, { isPrimary: true, createdAt })

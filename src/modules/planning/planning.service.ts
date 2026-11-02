@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { DataSource, EntityManager, EntityTarget, In, LessThan } from "typeorm";
+import { addMonthsToDate } from "src/common/helpers/helpers";
 import { Account } from "../accounts/account.entity";
 import { FixedCharge } from "../fixed-charges/fixed-charge.entity";
 import { Income } from "../incomes/income.entity";
@@ -51,7 +52,8 @@ export class PlanningService {
 
     /**
      * Save as pending the planned transactions of the month of the rules not generated yet this month, then move their cursor to the month.
-     * A rule which generated nothing stays open and is evaluated again the next day. Returns the number of saved transactions
+     * A rule which generated nothing stays open and is evaluated again the next day, the next due date of a generated provision payment moves forward.
+     * Returns the number of saved transactions
      */
     async generateForUser(userId: string, today: Date = new Date()): Promise<number> {
         const month = today.toISOString().slice(0, 7)
@@ -80,6 +82,14 @@ export class PlanningService {
             }
             for (const [entity, ids] of ruleIdsByEntity) {
                 await manager.update(entity, { id: In([...ids]) }, { lastGeneratedMonth: month })
+            }
+
+            // The payment of a provision is planned once: its next due date moves forward as soon as it is generated
+            for (const { planned: { source }, rule } of toGenerate) {
+                if (source === PlannedSource.PROVISION_PAYMENT) {
+                    const { nextDueDate, frequencyMonths } = rule as Provision
+                    await manager.update(Provision, rule.id!, { nextDueDate: addMonthsToDate(nextDueDate!, frequencyMonths!) })
+                }
             }
 
             return transactions.length

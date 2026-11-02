@@ -3,7 +3,8 @@ import { Account } from "src/modules/accounts/account.entity";
 import { TransactionSourceType, TransactionStatus } from "src/modules/transactions/types";
 import request from 'supertest';
 import { resetDatabase } from "../utils/database";
-import { createAccount, createSavingsGoal, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { createAccount, createSavingsGoal, createTransaction, createTransfer, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { Transaction } from "src/modules/transactions/transaction.entity";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('GET savings-goals', () => {
@@ -94,6 +95,24 @@ describe('GET savings-goals', () => {
                 .set('Authorization', `Bearer ${accessToken}`)
 
             expect(response.body.data[0]).toMatchObject({ currentAmount: 310000, progressPct: 100, projectedMonth: null })
+        })
+
+        it('should count the transfers to the savings account once, with the simple contributions', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const primary = await createAccount(ctx, user, { isPrimary: true })
+            const livret = await createAccount(ctx, user, { name: 'Livret A' })
+            const goal = await createSavingsGoal(ctx, user, { accountId: livret.id })
+            const confirmed = await createTransfer(ctx, user, primary, livret, 20000)
+            const pending = await createTransfer(ctx, user, primary, livret, 20000)
+            await ctx.repo(Transaction).update({ transferId: confirmed.transferId }, { savingsGoalId: goal.id })
+            await ctx.repo(Transaction).update({ transferId: pending.transferId }, { savingsGoalId: goal.id, status: TransactionStatus.PENDING })
+            await createTransaction(ctx, user, primary, { amount: -10000, sourceType: TransactionSourceType.SAVINGS, savingsGoalId: goal.id })
+
+            const response = await request(ctx.app.getHttpServer())
+                .get('/api/v1/savings-goals')
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            expect(response.body.data[0]).toMatchObject({ currentAmount: 30000, progressPct: 10 })
         })
 
         it('should not count the pending contributions', async () => {

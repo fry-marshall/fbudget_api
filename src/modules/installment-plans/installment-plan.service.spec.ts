@@ -1,3 +1,4 @@
+import { Account } from "../accounts/account.entity";
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { BadRequestException, ConflictException, NotFoundException } from "@nestjs/common";
@@ -119,13 +120,13 @@ describe('InstallmentPlanService', () => {
         describe('Success cases', () => {
             it('should lock the plan and create the installment expense on the plan account', async () => {
                 managerMocked.findOne.mockResolvedValueOnce(planMocked).mockResolvedValueOnce(installmentsMocked[2])
-                managerMocked.exists.mockResolvedValueOnce(false)
                 managerMocked.save.mockImplementationOnce((_, transaction) => ({ ...transaction, id: 'transaction-id', createdAt }))
 
                 const response = await installmentPlanService.pay('user-id', 'plan-id', 'installment-3', { occurredOn: '2026-11-15' })
 
                 expect(managerMocked.findOne).toHaveBeenNthCalledWith(1, InstallmentPlan, { where: { id: 'plan-id', userId: 'user-id' }, lock: { mode: 'pessimistic_write' } })
                 expect(managerMocked.findOne).toHaveBeenNthCalledWith(2, Installment, { where: { id: 'installment-3', planId: 'plan-id' } })
+                expect(managerMocked.findOne).toHaveBeenNthCalledWith(3, Transaction, { where: { installmentId: 'installment-3' } })
                 expect(managerMocked.save).toHaveBeenCalledWith(Transaction, {
                     amount: -3334,
                     occurredOn: '2026-11-15',
@@ -138,6 +139,29 @@ describe('InstallmentPlanService', () => {
                     userId: 'user-id',
                 })
                 expect(response.installment).toMatchObject({ id: 'installment-3', status: InstallmentStatus.PAID, transactionId: 'transaction-id', paidOn: '2026-11-15' })
+            })
+            it('should confirm the pending transaction generated for the installment on its account', async () => {
+                const plannedMocked = { id: 'planned-id', amount: -3334, occurredOn: '2026-11-15', accountId: 'primary-id', installmentId: 'installment-3', status: TransactionStatus.PENDING, sourceType: TransactionSourceType.INSTALLMENT, userId: 'user-id', createdAt }
+                managerMocked.findOne.mockResolvedValueOnce(planMocked).mockResolvedValueOnce(installmentsMocked[2]).mockResolvedValueOnce(plannedMocked)
+                managerMocked.save.mockImplementationOnce((_, transaction) => transaction)
+
+                const response = await installmentPlanService.pay('user-id', 'plan-id', 'installment-3', { occurredOn: '2026-11-14' })
+
+                expect(managerMocked.save).toHaveBeenCalledWith(Transaction, { ...plannedMocked, occurredOn: '2026-11-14', status: TransactionStatus.CONFIRMED })
+                expect(managerMocked.exists).not.toHaveBeenCalled()
+                expect(response.transaction).toMatchObject({ id: 'planned-id', amount: -3334, accountId: 'primary-id', status: TransactionStatus.CONFIRMED })
+                expect(response.installment).toMatchObject({ id: 'installment-3', status: InstallmentStatus.PAID, transactionId: 'planned-id', paidOn: '2026-11-14' })
+            })
+
+            it('should confirm the pending transaction on the account sent after checking it', async () => {
+                managerMocked.findOne.mockResolvedValueOnce(planMocked).mockResolvedValueOnce(installmentsMocked[2]).mockResolvedValueOnce({ id: 'planned-id', accountId: 'primary-id', status: TransactionStatus.PENDING })
+                managerMocked.exists.mockResolvedValueOnce(true)
+                managerMocked.save.mockImplementationOnce((_, transaction) => transaction)
+
+                await installmentPlanService.pay('user-id', 'plan-id', 'installment-3', { occurredOn: '2026-11-14', accountId: 'other-account-id' })
+
+                expect(managerMocked.exists).toHaveBeenCalledWith(Account, { where: { id: 'other-account-id', userId: 'user-id' } })
+                expect(managerMocked.save).toHaveBeenCalledWith(Transaction, expect.objectContaining({ id: 'planned-id', accountId: 'other-account-id', status: TransactionStatus.CONFIRMED }))
             })
         })
 
@@ -163,8 +187,7 @@ describe('InstallmentPlanService', () => {
             })
 
             it('should throw ConflictException when the installment is already paid', async () => {
-                managerMocked.findOne.mockResolvedValueOnce(planMocked).mockResolvedValueOnce(installmentsMocked[0])
-                managerMocked.exists.mockResolvedValueOnce(true)
+                managerMocked.findOne.mockResolvedValueOnce(planMocked).mockResolvedValueOnce(installmentsMocked[0]).mockResolvedValueOnce({ id: 'transaction-id', status: TransactionStatus.CONFIRMED })
 
                 await expect(installmentPlanService.pay('user-id', 'plan-id', 'installment-1', { occurredOn: '2026-11-15' })).rejects.toThrow(new ConflictException(ERRORS_MESSAGES.INSTALLMENT_PLANS.INSTALLMENT_ALREADY_PAID))
                 expect(managerMocked.save).not.toHaveBeenCalled()
@@ -172,7 +195,6 @@ describe('InstallmentPlanService', () => {
 
             it('should throw ConflictException when the unique index rejects a second payment', async () => {
                 managerMocked.findOne.mockResolvedValueOnce(planMocked).mockResolvedValueOnce(installmentsMocked[0])
-                managerMocked.exists.mockResolvedValueOnce(false)
                 managerMocked.save.mockRejectedValueOnce(new QueryFailedError('INSERT', [], Object.assign(new Error('query failed'), { code: '23505' })))
 
                 await expect(installmentPlanService.pay('user-id', 'plan-id', 'installment-1', { occurredOn: '2026-11-15' })).rejects.toThrow(new ConflictException(ERRORS_MESSAGES.INSTALLMENT_PLANS.INSTALLMENT_ALREADY_PAID))
@@ -180,7 +202,6 @@ describe('InstallmentPlanService', () => {
 
             it('should throw BadRequestException when no account is available', async () => {
                 managerMocked.findOne.mockResolvedValueOnce({ ...planMocked, accountId: null }).mockResolvedValueOnce(installmentsMocked[0])
-                managerMocked.exists.mockResolvedValueOnce(false)
 
                 await expect(installmentPlanService.pay('user-id', 'plan-id', 'installment-1', { occurredOn: '2026-11-15' })).rejects.toThrow(new BadRequestException(ERRORS_MESSAGES.INSTALLMENT_PLANS.ACCOUNT_REQUIRED))
                 expect(managerMocked.save).not.toHaveBeenCalled()

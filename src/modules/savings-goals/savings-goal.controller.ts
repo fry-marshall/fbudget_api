@@ -60,16 +60,16 @@ export class SavingsGoalController {
     }
 
     @Post(':id/contributions')
-    @ApiOperation({ summary: 'Record a transfer to a savings goal: create a negative transaction with sourceType savings debiting the account' })
+    @ApiOperation({ summary: 'Put money aside for a savings goal from an account of the connected user, the primary account by default: a transfer to the savings account of the goal, or a simple debit for a goal without account' })
     @ApiSuccessResponse(ContributeSavingsGoalResponseDto, 201)
-    @ApiBadRequestResponse({ description: `${ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST} | ${ERRORS_MESSAGES.SAVINGS_GOALS.ACCOUNT_REQUIRED}`, type: ErrorResponse })
+    @ApiBadRequestResponse({ description: `${ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST} | ${ERRORS_MESSAGES.SAVINGS_GOALS.ACCOUNT_REQUIRED} | ${ERRORS_MESSAGES.SAVINGS_GOALS.SOURCE_IS_SAVINGS_ACCOUNT}`, type: ErrorResponse })
     @ApiNotFoundResponse({ description: `${ERRORS_MESSAGES.SAVINGS_GOALS.SAVINGS_GOAL_NOT_FOUND} | ${ERRORS_MESSAGES.ACCOUNTS.ACCOUNT_NOT_FOUND}`, type: ErrorResponse })
     contribute(@CurrentUser() user: PayloadJwt, @Param('id', UuidParamPipe) id: string, @Body() contributeSavingsGoalDto: ContributeSavingsGoalDto): Promise<ContributeSavingsGoalResponseDto> {
         return this.savingsGoalService.contribute(user.id!, id, contributeSavingsGoalDto)
     }
 
     @Get(':id/contributions')
-    @ApiOperation({ summary: 'List the contributions of a savings goal, whatever their month, most recent first' })
+    @ApiOperation({ summary: 'List the contributions of a savings goal, whatever their month, most recent first: the credit of the savings account for a transfer' })
     @ApiSuccessArrayResponse(TransactionResponseDto)
     @ApiBadRequestResponse({ description: ERRORS_MESSAGES.EXCEPTIONS.BAD_REQUEST, type: ErrorResponse })
     @ApiNotFoundResponse({ description: ERRORS_MESSAGES.SAVINGS_GOALS.SAVINGS_GOAL_NOT_FOUND, type: ErrorResponse })

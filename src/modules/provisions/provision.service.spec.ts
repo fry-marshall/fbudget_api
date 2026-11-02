@@ -12,7 +12,17 @@ import { ProvisionStatus } from "./types";
 
 describe('ProvisionService', () => {
 
+    let queryBuilderMocked = {
+        innerJoin: jest.fn(),
+        select: jest.fn(),
+        addSelect: jest.fn(),
+        where: jest.fn(),
+        andWhere: jest.fn(),
+        groupBy: jest.fn(),
+        getRawMany: jest.fn(),
+    };
     let managerMocked = {
+        createQueryBuilder: jest.fn(),
         findOne: jest.fn(),
         exists: jest.fn(),
         save: jest.fn(),
@@ -56,6 +66,8 @@ describe('ProvisionService', () => {
         totalAmount: 70000,
         frequencyMonths: 12,
         monthlyAmount: 5834,
+        reservedAmount: 0,
+        progressPct: 0,
         nextDueDate: '2027-03-15',
         startedAt: '2026-11-01',
         status: ProvisionStatus.ACTIVE,
@@ -92,6 +104,11 @@ describe('ProvisionService', () => {
     beforeEach(() => {
         jest.resetAllMocks()
         dataSourceMocked.transaction.mockImplementation((callback) => callback(managerMocked))
+        managerMocked.createQueryBuilder.mockReturnValue(queryBuilderMocked)
+        for (const method of ['innerJoin', 'select', 'addSelect', 'where', 'andWhere', 'groupBy'] as const) {
+            queryBuilderMocked[method].mockReturnValue(queryBuilderMocked)
+        }
+        queryBuilderMocked.getRawMany.mockResolvedValue([])
     })
 
     describe('findAll', () => {
@@ -110,6 +127,35 @@ describe('ProvisionService', () => {
         })
     })
 
+    describe('reservedAmount', () => {
+        describe('Success cases', () => {
+            it('should sum the confirmed transfers received and payments of each provision on its dedicated account', async () => {
+                provisionRepositoryMocked.find.mockResolvedValueOnce([provisionMocked, { ...provisionMocked, id: 'other-id', totalAmount: 10000 }])
+                managerMocked.findOne.mockResolvedValueOnce({ id: 'primary-id' })
+                queryBuilderMocked.getRawMany.mockResolvedValueOnce([{ provisionId: 'provision-id', reservedAmount: '17502' }, { provisionId: 'other-id', reservedAmount: '-2000' }])
+
+                const response = await provisionService.findAll('user-id')
+
+                expect(response.map(({ id, reservedAmount, progressPct }) => [id, reservedAmount, progressPct])).toEqual([['provision-id', 17502, 25], ['other-id', -2000, 0]])
+                expect(managerMocked.findOne).toHaveBeenCalledWith(Account, { select: { id: true }, where: { userId: 'user-id', isPrimary: true } })
+                expect(managerMocked.createQueryBuilder).toHaveBeenCalledWith(Transaction, 'transaction')
+                expect(queryBuilderMocked.innerJoin).toHaveBeenCalledWith(Provision, 'provision', 'provision.id = transaction.provisionId AND provision.accountId = transaction.accountId')
+                expect(queryBuilderMocked.andWhere).toHaveBeenCalledWith('transaction.provisionId IN (:...provisionIds)', { provisionIds: ['provision-id', 'other-id'] })
+                expect(queryBuilderMocked.andWhere).toHaveBeenCalledWith('transaction.status = :status', { status: TransactionStatus.CONFIRMED })
+            })
+
+            it('should return null for a provision on the primary account or without account', async () => {
+                provisionRepositoryMocked.find.mockResolvedValueOnce([{ ...provisionMocked, accountId: 'primary-id' }, { ...provisionMocked, id: 'other-id', accountId: null }])
+                managerMocked.findOne.mockResolvedValueOnce({ id: 'primary-id' })
+
+                const response = await provisionService.findAll('user-id')
+
+                expect(response.map(({ reservedAmount, progressPct }) => [reservedAmount, progressPct])).toEqual([[null, null], [null, null]])
+                expect(managerMocked.createQueryBuilder).not.toHaveBeenCalled()
+            })
+        })
+    })
+
     describe('create', () => {
         describe('Success cases', () => {
             it('should save an active provision for the user', async () => {
@@ -118,7 +164,8 @@ describe('ProvisionService', () => {
 
                 const response = await provisionService.create('user-id', body)
 
-                expect(response).toStrictEqual({ ...provisionDto, accountId: null })
+                expect(response).toStrictEqual({ ...provisionDto, accountId: null, reservedAmount: null, progressPct: null })
+                expect(managerMocked.createQueryBuilder).not.toHaveBeenCalled()
                 expect(provisionRepositoryMocked.save).toHaveBeenCalledWith({ ...body, status: ProvisionStatus.ACTIVE, userId: 'user-id' })
             })
         })
@@ -242,7 +289,7 @@ describe('ProvisionService', () => {
 
                 expect(response).toHaveLength(1)
                 expect(response[0]).toMatchObject({ id: 'transaction-id', provisionId: 'provision-id' })
-                expect(transactionRepositoryMocked.find).toHaveBeenCalledWith({ where: { provisionId: 'provision-id', userId: 'user-id' }, order: { occurredOn: 'DESC', createdAt: 'DESC' } })
+                expect(transactionRepositoryMocked.find).toHaveBeenCalledWith({ where: { provisionId: 'provision-id', userId: 'user-id', sourceType: TransactionSourceType.PROVISION }, order: { occurredOn: 'DESC', createdAt: 'DESC' } })
             })
         })
 

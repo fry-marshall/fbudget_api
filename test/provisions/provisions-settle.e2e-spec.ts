@@ -53,6 +53,8 @@ describe('POST provisions/:id/settle', () => {
                     totalAmount: 70000,
                     frequencyMonths: 12,
                     monthlyAmount: 5834,
+                    reservedAmount: -70000,
+                    progressPct: 0,
                     nextDueDate: '2028-03-15',
                     startedAt: '2026-11-01',
                     status: ProvisionStatus.ACTIVE,

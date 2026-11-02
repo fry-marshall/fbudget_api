@@ -6,6 +6,7 @@ import { FixedCharge } from "../fixed-charges/fixed-charge.entity";
 import { Income } from "../incomes/income.entity";
 import { InstallmentPlan } from "../installment-plans/installment-plan.entity";
 import { InstallmentPlanStatus } from "../installment-plans/types";
+import { ProvisionStatus } from "../provisions/types";
 import { Provision } from "../provisions/provision.entity";
 import { SavingsGoal } from "../savings-goals/savings-goal.entity";
 import { Transaction } from "../transactions/transaction.entity";
@@ -43,13 +44,13 @@ describe('PlanningService', () => {
         installments: [{ id: 'installment-2', index: 2, dueDate: '2026-11-15', amount: 18750 }],
     }
 
-    const mockRules = (rules: { accounts?: Account[], incomes?: Income[], fixedCharges?: FixedCharge[], installmentPlans?: InstallmentPlan[], paidInstallments?: Transaction[] } = {}) => {
+    const mockRules = (rules: { accounts?: Account[], incomes?: Income[], fixedCharges?: FixedCharge[], installmentPlans?: InstallmentPlan[], provisions?: Provision[], paidInstallments?: Transaction[] } = {}) => {
         const data = new Map<unknown, unknown[]>([
             [Account, rules.accounts ?? [primary]],
             [Income, rules.incomes ?? [salary]],
             [FixedCharge, rules.fixedCharges ?? [rent]],
             [InstallmentPlan, rules.installmentPlans ?? []],
-            [Provision, []],
+            [Provision, rules.provisions ?? []],
             [SavingsGoal, []],
             [Transaction, rules.paidInstallments ?? []],
         ])
@@ -126,6 +127,28 @@ describe('PlanningService', () => {
 
                 expect(managerMocked.save).toHaveBeenCalledWith(Transaction, [expect.objectContaining({ amount: -18750, sourceType: TransactionSourceType.INSTALLMENT, installmentId: 'installment-2' })])
                 expect(managerMocked.update).toHaveBeenCalledWith(InstallmentPlan, { id: In(['iphone-id']) }, { lastGeneratedMonth: '2026-11' })
+            })
+
+            it('should move the next due date of a provision forward when its payment is generated', async () => {
+                const insurance: Provision = { id: 'insurance-id', label: 'Assurance auto', totalAmount: 70000, frequencyMonths: 12, nextDueDate: '2026-11-15', startedAt: '2026-01-01', status: ProvisionStatus.ACTIVE, accountId: null, categoryId: null, lastGeneratedMonth: null, createdAt }
+                mockRules({ incomes: [], fixedCharges: [], provisions: [insurance] })
+
+                await planningService.generateForUser('user-id', today)
+
+                expect(managerMocked.save).toHaveBeenCalledWith(Transaction, [expect.objectContaining({ amount: -70000, occurredOn: '2026-11-15', sourceType: TransactionSourceType.PROVISION, provisionId: 'insurance-id' })])
+                expect(managerMocked.update).toHaveBeenCalledWith(Provision, { id: In(['insurance-id']) }, { lastGeneratedMonth: '2026-11' })
+                expect(managerMocked.update).toHaveBeenCalledWith(Provision, 'insurance-id', { nextDueDate: '2027-11-15' })
+            })
+
+            it('should not move the next due date of a provision when only its transfer is generated', async () => {
+                const provisionsAccount: Account = { id: 'provisions-id', name: 'Provisions', isPrimary: false, lastGeneratedMonth: null, createdAt }
+                const insurance: Provision = { id: 'insurance-id', label: 'Assurance auto', totalAmount: 70000, frequencyMonths: 12, nextDueDate: '2027-03-15', startedAt: '2026-01-01', status: ProvisionStatus.ACTIVE, accountId: 'provisions-id', categoryId: null, lastGeneratedMonth: null, createdAt }
+                mockRules({ accounts: [primary, provisionsAccount], incomes: [], fixedCharges: [], provisions: [insurance] })
+
+                await planningService.generateForUser('user-id', today)
+
+                expect(managerMocked.update).toHaveBeenCalledTimes(1)
+                expect(managerMocked.update).toHaveBeenCalledWith(Provision, { id: In(['insurance-id']) }, { lastGeneratedMonth: '2026-11' })
             })
 
             it('should skip an installment already paid and keep its plan open', async () => {

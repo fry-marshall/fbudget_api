@@ -28,97 +28,127 @@ describe('POST savings-goals/:id/contributions', () => {
         await ctx.app.close()
     })
 
+    const contribute = (accessToken: string, goalId: string, body: object = VALID_BODY) => request(ctx.app.getHttpServer())
+        .post(`/api/v1/savings-goals/${goalId}/contributions`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send(body)
+
+    const getBalance = async (accessToken: string, accountId: string): Promise<number> => (await request(ctx.app.getHttpServer())
+        .get(`/api/v1/accounts/${accountId}/balance`)
+        .set('Authorization', `Bearer ${accessToken}`)).body.data.balance
+
+    /**
+     * A user paid on the primary account who saves on a livret
+     */
+    const setup = async () => {
+        const { user, accessToken } = await createUserAndLogin(ctx)
+        const primary = await createAccount(ctx, user, { name: 'Compte salaire', isPrimary: true, initialBalance: 100000 })
+        const livret = await createAccount(ctx, user, { name: 'Livret A', initialBalance: 0 })
+
+        return { user, accessToken, primary, livret }
+    }
+
     describe('Success cases', () => {
-        it('should create a negative savings transaction on the account of the goal and return the updated goal', async () => {
-            const { user, accessToken } = await createUserAndLogin(ctx)
-            const account = await createAccount(ctx, user)
-            const goal = await createSavingsGoal(ctx, user, { accountId: account.id })
-            await createTransaction(ctx, user, account, { sourceType: TransactionSourceType.SAVINGS, savingsGoalId: goal.id, amount: -100000 })
+        it('should transfer from the primary account to the savings account of the goal and return the debit with the updated goal', async () => {
+            const { user, accessToken, primary, livret } = await setup()
+            const goal = await createSavingsGoal(ctx, user, { accountId: livret.id })
+            await createTransaction(ctx, user, primary, { sourceType: TransactionSourceType.SAVINGS, savingsGoalId: goal.id, amount: -100000 })
 
-            const response = await request(ctx.app.getHttpServer())
-                .post(`/api/v1/savings-goals/${goal.id}/contributions`)
-                .set('Authorization', `Bearer ${accessToken}`)
-                .send(VALID_BODY)
+            const response = await contribute(accessToken, goal.id!)
 
-            const transaction = await transactionRepository.findOneBy({ id: response.body.data.transaction.id })
+            const [debit, credit] = await Promise.all([
+                transactionRepository.findOneBy({ id: response.body.data.transaction.id }),
+                transactionRepository.findOneBy({ accountId: livret.id }),
+            ])
             expect(response.statusCode).toBe(201)
             expect(response.body.data.savingsGoal).toMatchObject({ id: goal.id, currentAmount: 120000, progressPct: 40 })
             expect(response.body.data.transaction).toStrictEqual({
-                id: transaction!.id,
+                id: debit!.id,
                 amount: -20000,
                 occurredOn: '2026-11-01',
-                accountId: account.id,
+                accountId: primary.id,
                 categoryId: null,
                 merchant: 'Apport voiture',
                 note: null,
                 tags: [],
-                sourceType: TransactionSourceType.SAVINGS,
+                sourceType: TransactionSourceType.TRANSFER,
                 provisionId: null,
                 installmentId: null,
                 savingsGoalId: goal.id,
-                transferId: null,
+                transferId: expect.stringMatching(/^[0-9a-f-]{36}$/),
                 fixedChargeId: null,
                 incomeId: null,
                 status: TransactionStatus.CONFIRMED,
-                createdAt: transaction!.createdAt!.toISOString(),
+                createdAt: debit!.createdAt!.toISOString(),
             })
+            expect(credit).toMatchObject({ amount: 20000, occurredOn: '2026-11-01', sourceType: TransactionSourceType.TRANSFER, savingsGoalId: goal.id, transferId: debit!.transferId, status: TransactionStatus.CONFIRMED })
+            expect(await getBalance(accessToken, primary.id!)).toBe(-20000)
+            expect(await getBalance(accessToken, livret.id!)).toBe(20000)
         })
 
-        it('should debit the account sent instead of the account of the goal', async () => {
-            const { user, accessToken } = await createUserAndLogin(ctx)
-            const account = await createAccount(ctx, user)
-            const otherAccount = await createAccount(ctx, user, { name: 'Wave' })
-            const goal = await createSavingsGoal(ctx, user, { accountId: account.id })
+        it('should transfer from the account sent instead of the primary account', async () => {
+            const { user, accessToken, livret } = await setup()
+            const wave = await createAccount(ctx, user, { name: 'Wave' })
+            const goal = await createSavingsGoal(ctx, user, { accountId: livret.id })
 
-            const response = await request(ctx.app.getHttpServer())
-                .post(`/api/v1/savings-goals/${goal.id}/contributions`)
-                .set('Authorization', `Bearer ${accessToken}`)
-                .send({ ...VALID_BODY, accountId: otherAccount.id })
+            const response = await contribute(accessToken, goal.id!, { ...VALID_BODY, accountId: wave.id })
 
             expect(response.statusCode).toBe(201)
-            expect(response.body.data.transaction.accountId).toBe(otherAccount.id)
+            expect(response.body.data.transaction).toMatchObject({ amount: -20000, accountId: wave.id })
+            expect(await transactionRepository.findOneBy({ accountId: livret.id })).toMatchObject({ amount: 20000 })
         })
 
-        it('should lower the balance of the debited account', async () => {
-            const { user, accessToken } = await createUserAndLogin(ctx)
-            const account = await createAccount(ctx, user, { initialBalance: 100000 })
+        it('should only debit the primary account for a goal without savings account', async () => {
+            const { user, accessToken, primary } = await setup()
             const goal = await createSavingsGoal(ctx, user)
 
-            await request(ctx.app.getHttpServer())
-                .post(`/api/v1/savings-goals/${goal.id}/contributions`)
-                .set('Authorization', `Bearer ${accessToken}`)
-                .send({ ...VALID_BODY, accountId: account.id })
-            const response = await request(ctx.app.getHttpServer())
-                .get(`/api/v1/accounts/${account.id}/balance`)
-                .set('Authorization', `Bearer ${accessToken}`)
+            const response = await contribute(accessToken, goal.id!)
 
-            expect(response.body.data.balance).toBe(80000)
+            expect(response.statusCode).toBe(201)
+            expect(response.body.data.transaction).toMatchObject({ amount: -20000, accountId: primary.id, sourceType: TransactionSourceType.SAVINGS, transferId: null })
+            expect(response.body.data.savingsGoal).toMatchObject({ currentAmount: 20000 })
+            expect(await transactionRepository.count()).toBe(1)
+            expect(await getBalance(accessToken, primary.id!)).toBe(80000)
+        })
+
+        it('should only debit the source account once the savings account of the goal was deleted', async () => {
+            const { user, accessToken, primary, livret } = await setup()
+            const goal = await createSavingsGoal(ctx, user, { accountId: livret.id })
+            await ctx.repo(Account).delete(livret.id!)
+
+            const response = await contribute(accessToken, goal.id!)
+
+            expect(response.statusCode).toBe(201)
+            expect(response.body.data.transaction).toMatchObject({ amount: -20000, accountId: primary.id, sourceType: TransactionSourceType.SAVINGS })
+        })
+
+        it('should only debit the source account for a goal saved on the primary account', async () => {
+            const { user, accessToken, primary } = await setup()
+            const goal = await createSavingsGoal(ctx, user, { accountId: primary.id })
+
+            const response = await contribute(accessToken, goal.id!)
+
+            expect(response.statusCode).toBe(201)
+            expect(response.body.data.transaction).toMatchObject({ amount: -20000, accountId: primary.id, sourceType: TransactionSourceType.SAVINGS, transferId: null })
+            expect(await transactionRepository.count()).toBe(1)
         })
 
         it('should accept a contribution once the target is reached', async () => {
-            const { user, accessToken } = await createUserAndLogin(ctx)
-            const account = await createAccount(ctx, user)
-            const goal = await createSavingsGoal(ctx, user, { accountId: account.id })
-            await createTransaction(ctx, user, account, { sourceType: TransactionSourceType.SAVINGS, savingsGoalId: goal.id, amount: -300000 })
+            const { user, accessToken, primary, livret } = await setup()
+            const goal = await createSavingsGoal(ctx, user, { accountId: livret.id })
+            await createTransaction(ctx, user, primary, { sourceType: TransactionSourceType.SAVINGS, savingsGoalId: goal.id, amount: -300000 })
 
-            const response = await request(ctx.app.getHttpServer())
-                .post(`/api/v1/savings-goals/${goal.id}/contributions`)
-                .set('Authorization', `Bearer ${accessToken}`)
-                .send(VALID_BODY)
+            const response = await contribute(accessToken, goal.id!)
 
             expect(response.statusCode).toBe(201)
             expect(response.body.data.savingsGoal).toMatchObject({ currentAmount: 320000, progressPct: 100, projectedMonth: null })
         })
 
         it('should contribute to a plain recurring transfer without target', async () => {
-            const { user, accessToken } = await createUserAndLogin(ctx)
-            const account = await createAccount(ctx, user)
-            const goal = await createSavingsGoal(ctx, user, { targetAmount: null, targetDate: null, accountId: account.id })
+            const { user, accessToken, livret } = await setup()
+            const goal = await createSavingsGoal(ctx, user, { targetAmount: null, targetDate: null, accountId: livret.id })
 
-            const response = await request(ctx.app.getHttpServer())
-                .post(`/api/v1/savings-goals/${goal.id}/contributions`)
-                .set('Authorization', `Bearer ${accessToken}`)
-                .send(VALID_BODY)
+            const response = await contribute(accessToken, goal.id!)
 
             expect(response.statusCode).toBe(201)
             expect(response.body.data.savingsGoal).toMatchObject({ hasGoal: false, currentAmount: 20000, progressPct: null })
@@ -158,33 +188,27 @@ describe('POST savings-goals/:id/contributions', () => {
             expect(await transactionRepository.count()).toEqual(0)
         })
 
-        it('should throw bad request when neither the body nor the savings goal has an account', async () => {
+        it('should throw bad request when no account is sent and the user has no primary account', async () => {
             const { user, accessToken } = await createUserAndLogin(ctx)
-            const goal = await createSavingsGoal(ctx, user)
+            const livret = await createAccount(ctx, user, { name: 'Livret A' })
+            const goal = await createSavingsGoal(ctx, user, { accountId: livret.id })
 
-            const response = await request(ctx.app.getHttpServer())
-                .post(`/api/v1/savings-goals/${goal.id}/contributions`)
-                .set('Authorization', `Bearer ${accessToken}`)
-                .send(VALID_BODY)
+            const response = await contribute(accessToken, goal.id!)
 
             expect(response.statusCode).toBe(400)
             expect(response.body.message).toBe(ERRORS_MESSAGES.SAVINGS_GOALS.ACCOUNT_REQUIRED)
             expect(await transactionRepository.count()).toEqual(0)
         })
 
-        it('should throw bad request when the account of the savings goal was deleted', async () => {
-            const { user, accessToken } = await createUserAndLogin(ctx)
-            const account = await createAccount(ctx, user)
-            const goal = await createSavingsGoal(ctx, user, { accountId: account.id })
-            await ctx.repo(Account).delete(account.id!)
+        it('should throw bad request when the account sent is the savings account of the goal', async () => {
+            const { user, accessToken, livret } = await setup()
+            const goal = await createSavingsGoal(ctx, user, { accountId: livret.id })
 
-            const response = await request(ctx.app.getHttpServer())
-                .post(`/api/v1/savings-goals/${goal.id}/contributions`)
-                .set('Authorization', `Bearer ${accessToken}`)
-                .send(VALID_BODY)
+            const response = await contribute(accessToken, goal.id!, { ...VALID_BODY, accountId: livret.id })
 
             expect(response.statusCode).toBe(400)
-            expect(response.body.message).toBe(ERRORS_MESSAGES.SAVINGS_GOALS.ACCOUNT_REQUIRED)
+            expect(response.body.message).toBe(ERRORS_MESSAGES.SAVINGS_GOALS.SOURCE_IS_SAVINGS_ACCOUNT)
+            expect(await transactionRepository.count()).toEqual(0)
         })
 
         it('should throw bad request when id is not a uuid', async () => {

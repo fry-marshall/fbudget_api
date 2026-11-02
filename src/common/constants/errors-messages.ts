@@ -50,7 +50,8 @@ export const ERRORS_MESSAGES = {
     SAVINGS_GOALS: {
         SAVINGS_GOAL_NOT_FOUND: 'Savings goal not found',
         TARGET_AMOUNT_REQUIRED: 'A target date requires a target amount',
-        ACCOUNT_REQUIRED: 'An account is required to contribute to a savings goal without account',
+        ACCOUNT_REQUIRED: 'An account to debit is required without primary account',
+        SOURCE_IS_SAVINGS_ACCOUNT: 'The account debited must be different from the account of the savings goal',
     },
     TRANSFERS: {
         SAME_ACCOUNT: 'The source and destination accounts must be different',

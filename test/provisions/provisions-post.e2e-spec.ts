@@ -48,6 +48,8 @@ describe('POST provisions', () => {
                 id: provisionCreated!.id,
                 ...VALID_BODY,
                 monthlyAmount: 5834,
+                reservedAmount: 0,
+                progressPct: 0,
                 status: ProvisionStatus.ACTIVE,
                 accountId: account.id,
                 categoryId: category.id,

@@ -1,4 +1,5 @@
-import { getProgressPct, getProjectedMonth } from "./savings-goal.helpers";
+import { getProgressPct } from "src/common/helpers/helpers";
+import { getProjectedMonth } from "./savings-goal.helpers";
 
 describe('savings goal helpers', () => {
 

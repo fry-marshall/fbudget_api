@@ -1,6 +1,7 @@
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { MoreThan, Not } from "typeorm";
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { Account } from "../accounts/account.entity";
 import { Transaction } from "../transactions/transaction.entity";
@@ -12,6 +13,9 @@ describe('SavingsGoalService', () => {
 
     let managerMocked = {
         exists: jest.fn(),
+        findOne: jest.fn(),
+        transaction: jest.fn(),
+        save: jest.fn(),
     };
     let savingsGoalRepositoryMocked = {
         find: jest.fn(),
@@ -27,12 +31,14 @@ describe('SavingsGoalService', () => {
         where: jest.fn(),
         andWhere: jest.fn(),
         groupBy: jest.fn(),
+        setParameter: jest.fn(),
         getRawMany: jest.fn(),
     };
     let transactionRepositoryMocked = {
         find: jest.fn(),
         save: jest.fn(),
         createQueryBuilder: jest.fn(),
+        manager: managerMocked,
     };
     let savingsGoalService: SavingsGoalService;
 
@@ -75,7 +81,9 @@ describe('SavingsGoalService', () => {
     beforeEach(() => {
         jest.resetAllMocks()
         transactionRepositoryMocked.createQueryBuilder.mockReturnValue(queryBuilderMocked)
-        ;['select', 'addSelect', 'where', 'andWhere', 'groupBy'].forEach((method) => queryBuilderMocked[method].mockReturnValue(queryBuilderMocked))
+        ;['select', 'addSelect', 'where', 'andWhere', 'groupBy', 'setParameter'].forEach((method) => queryBuilderMocked[method].mockReturnValue(queryBuilderMocked))
+        managerMocked.transaction.mockImplementation((callback) => callback(managerMocked))
+        managerMocked.save.mockImplementation((_entity, transactions) => Promise.resolve(transactions.map((transaction, index) => ({ ...transaction, id: `transaction-${index + 1}`, createdAt }))))
         queryBuilderMocked.getRawMany.mockResolvedValue([])
     })
 
@@ -94,6 +102,8 @@ describe('SavingsGoalService', () => {
                 ])
                 expect(queryBuilderMocked.andWhere).toHaveBeenCalledWith('transaction.savingsGoalId IN (:...savingsGoalIds)', { savingsGoalIds: ['savings-goal-id', 'livret-id'] })
                 expect(queryBuilderMocked.andWhere).toHaveBeenCalledWith('transaction.status = :status', { status: TransactionStatus.CONFIRMED })
+                expect(queryBuilderMocked.addSelect).toHaveBeenCalledWith('COALESCE(SUM(CASE WHEN transaction.sourceType = :transfer THEN GREATEST(transaction.amount, 0) ELSE -transaction.amount END), 0)', 'currentAmount')
+                expect(queryBuilderMocked.setParameter).toHaveBeenCalledWith('transfer', TransactionSourceType.TRANSFER)
             })
 
             it('should not query the transactions when the user has no savings goal', async () => {
@@ -180,35 +190,84 @@ describe('SavingsGoalService', () => {
 
     describe('contribute', () => {
         describe('Success cases', () => {
-            it('should create a negative savings transaction on the account of the goal by default', async () => {
+            it('should transfer from the primary account to the savings account of the goal by default', async () => {
                 savingsGoalRepositoryMocked.findOne.mockResolvedValueOnce(savingsGoalMocked)
-                transactionRepositoryMocked.save.mockResolvedValueOnce(transactionMocked)
+                managerMocked.findOne.mockResolvedValueOnce({ id: 'primary-id' })
                 queryBuilderMocked.getRawMany.mockResolvedValueOnce([{ savingsGoalId: 'savings-goal-id', currentAmount: '20000' }])
 
                 const response = await savingsGoalService.contribute('user-id', 'savings-goal-id', { amount: 20000, occurredOn: '2026-11-01' })
 
-                expect(transactionRepositoryMocked.save).toHaveBeenCalledWith({
-                    amount: -20000,
+                const leg = { occurredOn: '2026-11-01', merchant: 'Apport voiture', status: TransactionStatus.CONFIRMED, savingsGoalId: 'savings-goal-id', userId: 'user-id', sourceType: TransactionSourceType.TRANSFER }
+                expect(managerMocked.findOne).toHaveBeenCalledWith(Account, { select: { id: true }, where: { userId: 'user-id', isPrimary: true } })
+                expect(managerMocked.save).toHaveBeenCalledWith(Transaction, [
+                    { ...leg, transferId: expect.any(String), amount: -20000, accountId: 'primary-id' },
+                    { ...leg, transferId: expect.any(String), amount: 20000, accountId: 'account-id' },
+                ])
+                expect(managerMocked.save.mock.calls[0][1][0].transferId).toEqual(managerMocked.save.mock.calls[0][1][1].transferId)
+                expect(managerMocked.exists).not.toHaveBeenCalled()
+                expect(response.savingsGoal).toMatchObject({ currentAmount: 20000, progressPct: 6 })
+                expect(response.transaction).toMatchObject({ id: 'transaction-1', amount: -20000, accountId: 'primary-id', savingsGoalId: 'savings-goal-id' })
+            })
+
+            it('should transfer from the account sent after checking it', async () => {
+                savingsGoalRepositoryMocked.findOne.mockResolvedValueOnce(savingsGoalMocked)
+                managerMocked.exists.mockResolvedValueOnce(true)
+                managerMocked.findOne.mockResolvedValueOnce({ id: 'primary-id' })
+
+                await savingsGoalService.contribute('user-id', 'savings-goal-id', { amount: 20000, occurredOn: '2026-11-01', accountId: 'other-account-id' })
+
+                expect(managerMocked.exists).toHaveBeenCalledWith(Account, { where: { id: 'other-account-id', userId: 'user-id' } })
+                expect(managerMocked.save).toHaveBeenCalledWith(Transaction, [
+                    expect.objectContaining({ amount: -20000, accountId: 'other-account-id' }),
+                    expect.objectContaining({ amount: 20000, accountId: 'account-id' }),
+                ])
+            })
+
+            it('should only debit the source account for a goal saved on the primary account', async () => {
+                savingsGoalRepositoryMocked.findOne.mockResolvedValueOnce({ ...savingsGoalMocked, accountId: 'primary-id' })
+                managerMocked.findOne.mockResolvedValueOnce({ id: 'primary-id' })
+
+                await savingsGoalService.contribute('user-id', 'savings-goal-id', { amount: 20000, occurredOn: '2026-11-01' })
+
+                expect(managerMocked.save).toHaveBeenCalledWith(Transaction, [expect.objectContaining({ sourceType: TransactionSourceType.SAVINGS, amount: -20000, accountId: 'primary-id' })])
+            })
+
+            it('should only debit the source account for a goal without savings account', async () => {
+                savingsGoalRepositoryMocked.findOne.mockResolvedValueOnce({ ...savingsGoalMocked, accountId: null })
+                managerMocked.findOne.mockResolvedValueOnce({ id: 'primary-id' })
+
+                const response = await savingsGoalService.contribute('user-id', 'savings-goal-id', { amount: 20000, occurredOn: '2026-11-01' })
+
+                expect(managerMocked.save).toHaveBeenCalledWith(Transaction, [{
                     occurredOn: '2026-11-01',
                     merchant: 'Apport voiture',
-                    accountId: 'account-id',
-                    sourceType: TransactionSourceType.SAVINGS,
                     status: TransactionStatus.CONFIRMED,
                     savingsGoalId: 'savings-goal-id',
                     userId: 'user-id',
-                })
-                expect(managerMocked.exists).not.toHaveBeenCalled()
-                expect(response.savingsGoal).toMatchObject({ currentAmount: 20000, progressPct: 6 })
-                expect(response.transaction).toMatchObject({ id: 'transaction-id', amount: -20000, savingsGoalId: 'savings-goal-id' })
+                    sourceType: TransactionSourceType.SAVINGS,
+                    amount: -20000,
+                    accountId: 'primary-id',
+                }])
+                expect(response.transaction).toMatchObject({ amount: -20000, accountId: 'primary-id', sourceType: TransactionSourceType.SAVINGS, transferId: null })
             })
         })
 
         describe('Failure cases', () => {
-            it('should throw BadRequestException when neither the body nor the goal has an account', async () => {
-                savingsGoalRepositoryMocked.findOne.mockResolvedValueOnce({ ...savingsGoalMocked, accountId: null })
+            it('should throw BadRequestException when no account is sent and the user has no primary account', async () => {
+                savingsGoalRepositoryMocked.findOne.mockResolvedValueOnce(savingsGoalMocked)
+                managerMocked.findOne.mockResolvedValueOnce(null)
 
                 await expect(savingsGoalService.contribute('user-id', 'savings-goal-id', { amount: 20000, occurredOn: '2026-11-01' })).rejects.toThrow(new BadRequestException(ERRORS_MESSAGES.SAVINGS_GOALS.ACCOUNT_REQUIRED))
-                expect(transactionRepositoryMocked.save).not.toHaveBeenCalled()
+                expect(managerMocked.save).not.toHaveBeenCalled()
+            })
+
+            it('should throw BadRequestException when the account debited is the savings account of the goal', async () => {
+                savingsGoalRepositoryMocked.findOne.mockResolvedValueOnce(savingsGoalMocked)
+                managerMocked.exists.mockResolvedValueOnce(true)
+                managerMocked.findOne.mockResolvedValueOnce({ id: 'primary-id' })
+
+                await expect(savingsGoalService.contribute('user-id', 'savings-goal-id', { amount: 20000, occurredOn: '2026-11-01', accountId: 'account-id' })).rejects.toThrow(new BadRequestException(ERRORS_MESSAGES.SAVINGS_GOALS.SOURCE_IS_SAVINGS_ACCOUNT))
+                expect(managerMocked.save).not.toHaveBeenCalled()
             })
 
             it('should throw NotFoundException when the account sent does not belong to the user', async () => {
@@ -216,7 +275,7 @@ describe('SavingsGoalService', () => {
                 managerMocked.exists.mockResolvedValueOnce(false)
 
                 await expect(savingsGoalService.contribute('user-id', 'savings-goal-id', { amount: 20000, occurredOn: '2026-11-01', accountId: 'other-account-id' })).rejects.toThrow(new NotFoundException(ERRORS_MESSAGES.ACCOUNTS.ACCOUNT_NOT_FOUND))
-                expect(transactionRepositoryMocked.save).not.toHaveBeenCalled()
+                expect(managerMocked.save).not.toHaveBeenCalled()
             })
         })
     })
@@ -231,7 +290,10 @@ describe('SavingsGoalService', () => {
 
                 expect(response.map((transaction) => transaction.id)).toEqual(['transaction-id'])
                 expect(transactionRepositoryMocked.find).toHaveBeenCalledWith({
-                    where: { savingsGoalId: 'savings-goal-id', userId: 'user-id' },
+                    where: [
+                        { savingsGoalId: 'savings-goal-id', userId: 'user-id', sourceType: Not(TransactionSourceType.TRANSFER) },
+                        { savingsGoalId: 'savings-goal-id', userId: 'user-id', sourceType: TransactionSourceType.TRANSFER, amount: MoreThan(0) },
+                    ],
                     order: { occurredOn: 'DESC', createdAt: 'DESC' }
                 })
             })

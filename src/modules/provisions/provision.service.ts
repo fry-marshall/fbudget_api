@@ -1,8 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DataSource, In, QueryFailedError, Repository } from "typeorm";
+import { DataSource, EntityManager, In, QueryFailedError, Repository } from "typeorm";
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
-import { addMonthsToDate } from "src/common/helpers/helpers";
+import { addMonthsToDate, getProgressPct } from "src/common/helpers/helpers";
 import { Account } from "../accounts/account.entity";
 import { Category } from "../categories/category.entity";
 import { Transaction } from "../transactions/transaction.entity";
@@ -37,7 +37,9 @@ export class ProvisionService {
             order: { nextDueDate: 'ASC', createdAt: 'ASC' }
         })
 
-        return provisions.map((provision) => this.toDto(provision))
+        const reservedAmounts = await this.findReservedAmounts(this.provisionRepository.manager, userId, provisions)
+
+        return provisions.map((provision) => this.toDto(provision, reservedAmounts.get(provision.id!) ?? null))
     }
 
     async create(userId: string, createProvisionDto: CreateProvisionDto): Promise<ProvisionResponseDto> {
@@ -45,8 +47,9 @@ export class ProvisionService {
 
         try {
             const provision = await this.provisionRepository.save({ ...createProvisionDto, status: ProvisionStatus.ACTIVE, userId })
+            const reservedAmounts = await this.findReservedAmounts(this.provisionRepository.manager, userId, [provision])
 
-            return this.toDto(provision)
+            return this.toDto(provision, reservedAmounts.get(provision.id!) ?? null)
         } catch (err) {
             this.handleForeignKeyViolation(err)
             throw err
@@ -65,7 +68,10 @@ export class ProvisionService {
             throw err
         }
 
-        return this.toDto((await this.provisionRepository.findOneBy({ id: provision.id }))!)
+        const updatedProvision = (await this.provisionRepository.findOneBy({ id: provision.id }))!
+        const reservedAmounts = await this.findReservedAmounts(this.provisionRepository.manager, userId, [updatedProvision])
+
+        return this.toDto(updatedProvision, reservedAmounts.get(updatedProvision.id!) ?? null)
     }
 
     async remove(userId: string, provisionId: string): Promise<{ message: string }> {
@@ -111,9 +117,10 @@ export class ProvisionService {
 
                 const nextDueDate = addMonthsToDate(provision.nextDueDate!, provision.frequencyMonths!)
                 await manager.update(Provision, provision.id!, { nextDueDate })
+                const reservedAmounts = await this.findReservedAmounts(manager, userId, [provision])
 
                 return {
-                    provision: this.toDto({ ...provision, nextDueDate }),
+                    provision: this.toDto({ ...provision, nextDueDate }, reservedAmounts.get(provision.id!) ?? null),
                     transaction: toTransactionDto(transaction),
                 }
             })
@@ -127,7 +134,7 @@ export class ProvisionService {
         const provision = await this.findUserProvision(userId, provisionId)
 
         const transactions = await this.transactionRepository.find({
-            where: { provisionId: provision.id, userId },
+            where: { provisionId: provision.id, userId, sourceType: TransactionSourceType.PROVISION },
             order: { occurredOn: 'DESC', createdAt: 'DESC' }
         })
 
@@ -179,13 +186,47 @@ export class ProvisionService {
         }
     }
 
-    private toDto(provision: Provision): ProvisionResponseDto {
+    /**
+     * Money actually put aside on the dedicated account of each provision, in one query: the confirmed transfers received minus the confirmed payments from this account.
+     * Null for a provision without dedicated account or on the primary account, its reserve is virtual
+     */
+    private async findReservedAmounts(manager: EntityManager, userId: string, provisions: Provision[]): Promise<Map<string, number | null>> {
+        const reservedAmounts = new Map<string, number | null>(provisions.map((provision) => [provision.id!, null]))
+        if (!provisions.some((provision) => provision.accountId)) {
+            return reservedAmounts
+        }
+
+        const primaryAccount = await manager.findOne(Account, { select: { id: true }, where: { userId, isPrimary: true } })
+        const fundedProvisions = provisions.filter((provision) => provision.accountId && provision.accountId !== primaryAccount?.id)
+        if (!fundedProvisions.length) {
+            return reservedAmounts
+        }
+
+        const rows = await manager.createQueryBuilder(Transaction, 'transaction')
+            .innerJoin(Provision, 'provision', 'provision.id = transaction.provisionId AND provision.accountId = transaction.accountId')
+            .select('transaction.provisionId', 'provisionId')
+            .addSelect('COALESCE(SUM(transaction.amount), 0)', 'reservedAmount')
+            .where('transaction.userId = :userId', { userId })
+            .andWhere('transaction.provisionId IN (:...provisionIds)', { provisionIds: fundedProvisions.map((provision) => provision.id) })
+            .andWhere('transaction.status = :status', { status: TransactionStatus.CONFIRMED })
+            .groupBy('transaction.provisionId')
+            .getRawMany<{ provisionId: string, reservedAmount: string }>()
+
+        fundedProvisions.forEach((provision) => reservedAmounts.set(provision.id!, 0))
+        rows.forEach(({ provisionId, reservedAmount }) => reservedAmounts.set(provisionId, Number(reservedAmount)))
+
+        return reservedAmounts
+    }
+
+    private toDto(provision: Provision, reservedAmount: number | null): ProvisionResponseDto {
         return {
             id: provision.id,
             label: provision.label,
             totalAmount: provision.totalAmount,
             frequencyMonths: provision.frequencyMonths,
             monthlyAmount: getMonthlyAmount(provision.totalAmount!, provision.frequencyMonths!),
+            reservedAmount,
+            progressPct: reservedAmount === null ? null : getProgressPct(reservedAmount, provision.totalAmount!),
             nextDueDate: provision.nextDueDate,
             startedAt: provision.startedAt,
             status: provision.status,

@@ -3,7 +3,8 @@ import { ProvisionStatus } from "src/modules/provisions/types";
 import { TransactionSourceType } from "src/modules/transactions/types";
 import request from 'supertest';
 import { resetDatabase } from "../utils/database";
-import { createAccount, createProvision, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { createAccount, createProvision, createTransaction, createTransfer, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { Transaction } from "src/modules/transactions/transaction.entity";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('GET provisions/:id/settlements', () => {
@@ -54,6 +55,22 @@ describe('GET provisions/:id/settlements', () => {
             expect(response.statusCode).toBe(200)
             expect(response.body.data.map((transaction) => transaction.id)).toEqual([last.id, old.id])
             expect(response.body.data[0]).toMatchObject({ amount: -70000, sourceType: TransactionSourceType.PROVISION, provisionId: provision.id })
+        })
+
+        it('should not return the transfers to the provision', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const primary = await createAccount(ctx, user, { isPrimary: true })
+            const provisionsAccount = await createAccount(ctx, user, { name: 'Provisions' })
+            const provision = await createProvision(ctx, user, { accountId: provisionsAccount.id })
+            const { transferId } = await createTransfer(ctx, user, primary, provisionsAccount)
+            await ctx.repo(Transaction).update({ transferId }, { provisionId: provision.id })
+            const payment = await createTransaction(ctx, user, provisionsAccount, { amount: -70000, sourceType: TransactionSourceType.PROVISION, provisionId: provision.id })
+
+            const response = await request(ctx.app.getHttpServer())
+                .get(`/api/v1/provisions/${provision.id}/settlements`)
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            expect(response.body.data.map((transaction) => transaction.id)).toEqual([payment.id])
         })
 
         it('should return the settlements of a cancelled provision', async () => {

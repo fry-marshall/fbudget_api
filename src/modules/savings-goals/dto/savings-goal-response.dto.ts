@@ -22,7 +22,7 @@ export class SavingsGoalResponseDto {
     @ApiProperty({ example: true, description: 'false for a plain recurring transfer without target, derived from targetAmount' })
     hasGoal?: boolean;
 
-    @ApiProperty({ example: 120000, description: 'Sum of the contributions, never stored' })
+    @ApiProperty({ example: 120000, description: 'Sum of the confirmed contributions, never stored' })
     currentAmount?: number;
 
     @ApiProperty({ example: 40, nullable: true, description: 'currentAmount / targetAmount as an integer between 0 and 100, null without target' })
@@ -31,7 +31,7 @@ export class SavingsGoalResponseDto {
     @ApiProperty({ example: '2027-08', nullable: true, description: 'Month (YYYY-MM) the target is reached at monthlyContribution per month from the current month, null without target or once reached' })
     projectedMonth?: string | null;
 
-    @ApiProperty({ format: 'uuid', nullable: true })
+    @ApiProperty({ format: 'uuid', nullable: true, description: 'Savings account the contributions are transferred to, null to debit the source account only' })
     accountId?: string | null;
 
     @ApiProperty()

@@ -117,6 +117,45 @@ describe('POST installment-plans/:id/installments/:installmentId/pay', () => {
 
             expect(response.body.data.balance).toBe(150000 - 18750)
         })
+
+        const setupPendingPayment = async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const primary = await createAccount(ctx, user, { isPrimary: true, initialBalance: 100000 })
+            const plan = await createInstallmentPlan(ctx, user)
+            const installment = plan.installments[0]
+            const pending = await createTransaction(ctx, user, primary, { amount: -18750, occurredOn: '2026-11-15', merchant: 'iPhone 15 1/4', sourceType: TransactionSourceType.INSTALLMENT, installmentId: installment.id, status: TransactionStatus.PENDING })
+
+            return { user, accessToken, primary, plan, installment, pending }
+        }
+
+        it('should confirm the pending payment generated for the installment instead of creating another one', async () => {
+            const { accessToken, primary, plan, installment, pending } = await setupPendingPayment()
+
+            const response = await request(ctx.app.getHttpServer())
+                .post(`/api/v1/installment-plans/${plan.id}/installments/${installment.id}/pay`)
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send({ occurredOn: '2026-11-14' })
+
+            expect(response.statusCode).toBe(201)
+            expect(response.body.data.installment).toMatchObject({ id: installment.id, status: InstallmentStatus.PAID, transactionId: pending.id, paidOn: '2026-11-14' })
+            expect(response.body.data.transaction).toMatchObject({ id: pending.id, amount: -18750, occurredOn: '2026-11-14', accountId: primary.id, merchant: 'iPhone 15 1/4', status: TransactionStatus.CONFIRMED })
+            expect(await transactionRepository.count()).toEqual(1)
+            const balance = await request(ctx.app.getHttpServer()).get(`/api/v1/accounts/${primary.id}/balance`).set('Authorization', `Bearer ${accessToken}`)
+            expect(balance.body.data.balance).toBe(81250)
+        })
+
+        it('should confirm the pending payment on the account sent', async () => {
+            const { user, accessToken, plan, installment, pending } = await setupPendingPayment()
+            const wave = await createAccount(ctx, user, { name: 'Wave' })
+
+            const response = await request(ctx.app.getHttpServer())
+                .post(`/api/v1/installment-plans/${plan.id}/installments/${installment.id}/pay`)
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send({ occurredOn: '2026-11-15', accountId: wave.id })
+
+            expect(response.statusCode).toBe(201)
+            expect(await transactionRepository.findOneBy({ id: pending.id })).toMatchObject({ accountId: wave.id, status: TransactionStatus.CONFIRMED })
+        })
     })
 
     describe('Failure cases', () => {

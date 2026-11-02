@@ -26,3 +26,14 @@ export const addMonthsToDate = (date: string, months: number): string => {
 
     return target.toISOString().slice(0, 10)
 }
+
+/**
+ * Share of a target already reached, as an integer between 0 and 100, null without target
+ */
+export const getProgressPct = (currentAmount: number, targetAmount: number | null): number | null => {
+    if (targetAmount === null) {
+        return null
+    }
+
+    return Math.max(0, Math.min(100, Math.floor(currentAmount * 100 / targetAmount)))
+}

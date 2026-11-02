@@ -2,7 +2,8 @@ import { ERRORS_MESSAGES } from "src/common/constants";
 import { TransactionSourceType } from "src/modules/transactions/types";
 import request from 'supertest';
 import { resetDatabase } from "../utils/database";
-import { createAccount, createSavingsGoal, createTransaction, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { createAccount, createSavingsGoal, createTransaction, createTransfer, createUserAndLogin, signAccessToken } from "../utils/factories";
+import { Transaction } from "src/modules/transactions/transaction.entity";
 import { createTestApp, TestContext } from "../utils/test-app";
 
 describe('GET savings-goals/:id/contributions', () => {
@@ -53,6 +54,21 @@ describe('GET savings-goals/:id/contributions', () => {
             expect(response.statusCode).toBe(200)
             expect(response.body.data.map((transaction) => transaction.id)).toEqual([last.id, old.id])
             expect(response.body.data[0]).toMatchObject({ amount: -20000, sourceType: TransactionSourceType.SAVINGS, savingsGoalId: goal.id })
+        })
+
+        it('should return one row per transfer: the credit of the savings account', async () => {
+            const { user, accessToken } = await createUserAndLogin(ctx)
+            const primary = await createAccount(ctx, user, { isPrimary: true })
+            const livret = await createAccount(ctx, user, { name: 'Livret A' })
+            const goal = await createSavingsGoal(ctx, user, { accountId: livret.id })
+            const { transferId, to } = await createTransfer(ctx, user, primary, livret, 20000)
+            await ctx.repo(Transaction).update({ transferId }, { savingsGoalId: goal.id })
+
+            const response = await request(ctx.app.getHttpServer())
+                .get(`/api/v1/savings-goals/${goal.id}/contributions`)
+                .set('Authorization', `Bearer ${accessToken}`)
+
+            expect(response.body.data.map(({ id, amount, accountId }) => [id, amount, accountId])).toEqual([[to.id, 20000, livret.id]])
         })
     })
 

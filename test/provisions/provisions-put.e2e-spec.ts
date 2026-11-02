@@ -45,6 +45,8 @@ describe('PUT provisions/:id', () => {
                 id: provision.id,
                 ...body,
                 monthlyAmount: 2500,
+                reservedAmount: 0,
+                progressPct: 0,
                 createdAt: provision.createdAt!.toISOString(),
             })
             expect(await provisionRepository.findOneBy({ id: provision.id })).toMatchObject(body)

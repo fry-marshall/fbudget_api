@@ -7,7 +7,7 @@ export class PayInstallmentDto {
     @IsDateOnly()
     occurredOn?: string;
 
-    @ApiPropertyOptional({ format: 'uuid', description: 'Account of the connected user debited, the account of the plan by default' })
+    @ApiPropertyOptional({ format: 'uuid', description: 'Account of the connected user debited, by default the account of the pending transaction generated for the installment, otherwise the account of the plan' })
     @ValidateIf((_, value) => value !== undefined)
     @IsUUID()
     accountId?: string;

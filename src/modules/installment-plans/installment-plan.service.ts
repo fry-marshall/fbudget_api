@@ -101,7 +101,8 @@ export class InstallmentPlanService {
     }
 
     /**
-     * Create the expense paying the installment, the plan row is locked so that the same installment cannot be paid twice
+     * Confirm the pending payment of the installment generated for the month, or create the expense paying it.
+     * The plan row is locked so that the same installment cannot be paid twice
      */
     async pay(userId: string, planId: string, installmentId: string, { occurredOn, accountId }: PayInstallmentDto): Promise<PayInstallmentResponseDto> {
         try {
@@ -117,11 +118,13 @@ export class InstallmentPlanService {
                 if (!installment) {
                     throw new NotFoundException(ERRORS_MESSAGES.INSTALLMENT_PLANS.INSTALLMENT_NOT_FOUND)
                 }
-                if (await manager.exists(Transaction, { where: { installmentId: installment.id } })) {
+                // The daily generation may already have planned the payment: it is confirmed instead of paid twice
+                const planned = await manager.findOne(Transaction, { where: { installmentId: installment.id } })
+                if (planned?.status === TransactionStatus.CONFIRMED) {
                     throw new ConflictException(ERRORS_MESSAGES.INSTALLMENT_PLANS.INSTALLMENT_ALREADY_PAID)
                 }
 
-                const debitedAccountId = accountId ?? plan.accountId
+                const debitedAccountId = accountId ?? planned?.accountId ?? plan.accountId
                 if (!debitedAccountId) {
                     throw new BadRequestException(ERRORS_MESSAGES.INSTALLMENT_PLANS.ACCOUNT_REQUIRED)
                 }
@@ -129,17 +132,19 @@ export class InstallmentPlanService {
                     throw new NotFoundException(ERRORS_MESSAGES.ACCOUNTS.ACCOUNT_NOT_FOUND)
                 }
 
-                const transaction = await manager.save(Transaction, {
-                    amount: -installment.amount!,
-                    occurredOn,
-                    merchant: plan.label,
-                    accountId: debitedAccountId,
-                    categoryId: plan.categoryId,
-                    sourceType: TransactionSourceType.INSTALLMENT,
-                    status: TransactionStatus.CONFIRMED,
-                    installmentId: installment.id,
-                    userId,
-                })
+                const transaction = await manager.save(Transaction, planned
+                    ? { ...planned, occurredOn, accountId: debitedAccountId, status: TransactionStatus.CONFIRMED }
+                    : {
+                        amount: -installment.amount!,
+                        occurredOn,
+                        merchant: plan.label,
+                        accountId: debitedAccountId,
+                        categoryId: plan.categoryId,
+                        sourceType: TransactionSourceType.INSTALLMENT,
+                        status: TransactionStatus.CONFIRMED,
+                        installmentId: installment.id,
+                        userId,
+                    })
 
                 return {
                     installment: this.toInstallmentDto(installment, new Map([[installment.id!, transaction]]), getFirstDayOfNextMonth()),
