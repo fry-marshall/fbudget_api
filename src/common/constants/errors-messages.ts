@@ -33,6 +33,7 @@ export const ERRORS_MESSAGES = {
     TRANSACTIONS: {
         TRANSACTION_NOT_FOUND: 'Transaction not found',
         TRANSFER_NOT_EDITABLE: 'The amount, account, date and category of a transfer cannot be changed, delete it and create a new one',
+        TRANSACTION_ALREADY_CONFIRMED: 'Transaction is already confirmed',
     },
     PROVISIONS: {
         PROVISION_NOT_FOUND: 'Provision not found',

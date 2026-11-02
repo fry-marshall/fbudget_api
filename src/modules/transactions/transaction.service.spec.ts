@@ -1,7 +1,7 @@
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { ConflictException, NotFoundException } from "@nestjs/common";
-import { And, LessThan, MoreThanOrEqual, QueryFailedError } from "typeorm";
+import { And, In, LessThan, MoreThanOrEqual, QueryFailedError } from "typeorm";
 import { ERRORS_MESSAGES, SUCCESS_MESSAGES } from "src/common/constants";
 import { Account } from "../accounts/account.entity";
 import { Category } from "../categories/category.entity";
@@ -13,6 +13,10 @@ describe('TransactionService', () => {
 
     let managerMocked = {
         exists: jest.fn(),
+        transaction: jest.fn(),
+        find: jest.fn(),
+        save: jest.fn(),
+        update: jest.fn(),
     };
     let transactionRepositoryMocked = {
         find: jest.fn(),
@@ -77,6 +81,8 @@ describe('TransactionService', () => {
 
     beforeEach(() => {
         jest.resetAllMocks()
+        managerMocked.transaction.mockImplementation((callback) => callback(managerMocked))
+        managerMocked.save.mockImplementation((_entity, transactions) => Promise.resolve(transactions))
     })
 
     describe('findAll', () => {
@@ -284,6 +290,140 @@ describe('TransactionService', () => {
                 transactionRepositoryMocked.delete.mockRejectedValueOnce(new Error('An error has occured'))
 
                 await expect(transactionService.remove('user-id', 'transaction-id')).rejects.toThrow(new Error('An error has occured'))
+            })
+        })
+    })
+    describe('findPending', () => {
+        describe('Success cases', () => {
+            it('should return the pending transactions of the previous and the current month, oldest first', async () => {
+                const pendingMocked = { ...transactionMocked, status: TransactionStatus.PENDING }
+                transactionRepositoryMocked.find.mockResolvedValueOnce([pendingMocked])
+
+                const response = await transactionService.findPending('user-id', new Date('2027-01-10T08:00:00Z'))
+
+                expect(response).toStrictEqual([{ ...transactionDto, status: TransactionStatus.PENDING }])
+                expect(transactionRepositoryMocked.find).toHaveBeenCalledWith({
+                    where: { userId: 'user-id', status: TransactionStatus.PENDING, occurredOn: And(MoreThanOrEqual('2026-12-01'), LessThan('2027-02-01')) },
+                    order: { occurredOn: 'ASC', createdAt: 'ASC', amount: 'ASC' }
+                })
+            })
+        })
+    })
+
+    describe('confirm', () => {
+        const pendingMocked: Transaction = { ...transactionMocked, amount: -85000, status: TransactionStatus.PENDING, sourceType: TransactionSourceType.FIXED_CHARGE }
+        const debitLeg: Transaction = { ...pendingMocked, amount: -5834, sourceType: TransactionSourceType.TRANSFER, transferId: 'transfer-id' }
+        const creditLeg: Transaction = { ...debitLeg, id: 'credit-id', amount: 5834, accountId: 'provisions-id' }
+
+        describe('Success cases', () => {
+            it('should confirm the transaction with its planned amount and day', async () => {
+                transactionRepositoryMocked.findOne.mockResolvedValueOnce(pendingMocked)
+                managerMocked.find.mockResolvedValueOnce([pendingMocked])
+
+                const response = await transactionService.confirm('user-id', 'transaction-id', {})
+
+                expect(response).toMatchObject({ id: 'transaction-id', amount: -85000, occurredOn: '2026-10-15', status: TransactionStatus.CONFIRMED })
+                expect(managerMocked.find).toHaveBeenCalledWith(Transaction, { where: { id: 'transaction-id', userId: 'user-id' }, lock: { mode: 'pessimistic_write' } })
+                expect(managerMocked.save).toHaveBeenCalledWith(Transaction, [{ ...pendingMocked, status: TransactionStatus.CONFIRMED }])
+            })
+
+            it.each([
+                [-85000, 87000, -87000],
+                [248000, 253000, 253000],
+            ])('should keep the sign of the pending amount %p when confirmed with %p', async (pendingAmount, amount, expected) => {
+                transactionRepositoryMocked.findOne.mockResolvedValueOnce({ ...pendingMocked, amount: pendingAmount })
+                managerMocked.find.mockResolvedValueOnce([{ ...pendingMocked, amount: pendingAmount }])
+
+                const response = await transactionService.confirm('user-id', 'transaction-id', { amount, occurredOn: '2026-10-16' })
+
+                expect(response).toMatchObject({ amount: expected, occurredOn: '2026-10-16', status: TransactionStatus.CONFIRMED })
+            })
+
+            it('should confirm both transactions of a transfer with the same amount and day', async () => {
+                transactionRepositoryMocked.findOne.mockResolvedValueOnce(creditLeg)
+                managerMocked.find.mockResolvedValueOnce([debitLeg, creditLeg])
+
+                const response = await transactionService.confirm('user-id', 'credit-id', { amount: 6000, occurredOn: '2026-10-29' })
+
+                expect(response).toMatchObject({ id: 'credit-id', amount: 6000, occurredOn: '2026-10-29', status: TransactionStatus.CONFIRMED })
+                expect(managerMocked.find).toHaveBeenCalledWith(Transaction, { where: { transferId: 'transfer-id', userId: 'user-id' }, lock: { mode: 'pessimistic_write' } })
+                expect(managerMocked.save).toHaveBeenCalledWith(Transaction, [
+                    { ...debitLeg, amount: -6000, occurredOn: '2026-10-29', status: TransactionStatus.CONFIRMED },
+                    { ...creditLeg, amount: 6000, occurredOn: '2026-10-29', status: TransactionStatus.CONFIRMED },
+                ])
+            })
+        })
+
+        describe('Failure cases', () => {
+            it('should throw NotFoundException when transaction doesn\'t belong to the user', async () => {
+                transactionRepositoryMocked.findOne.mockResolvedValueOnce(null)
+
+                await expect(transactionService.confirm('user-id', 'transaction-id', {})).rejects.toThrow(new NotFoundException(ERRORS_MESSAGES.TRANSACTIONS.TRANSACTION_NOT_FOUND))
+                expect(managerMocked.save).not.toHaveBeenCalled()
+            })
+
+            it('should throw NotFoundException when transaction is deleted before the lock', async () => {
+                transactionRepositoryMocked.findOne.mockResolvedValueOnce(pendingMocked)
+                managerMocked.find.mockResolvedValueOnce([])
+
+                await expect(transactionService.confirm('user-id', 'transaction-id', {})).rejects.toThrow(new NotFoundException(ERRORS_MESSAGES.TRANSACTIONS.TRANSACTION_NOT_FOUND))
+                expect(managerMocked.save).not.toHaveBeenCalled()
+            })
+
+            it('should throw ConflictException when transaction is already confirmed', async () => {
+                transactionRepositoryMocked.findOne.mockResolvedValueOnce(transactionMocked)
+                managerMocked.find.mockResolvedValueOnce([transactionMocked])
+
+                await expect(transactionService.confirm('user-id', 'transaction-id', {})).rejects.toThrow(new ConflictException(ERRORS_MESSAGES.TRANSACTIONS.TRANSACTION_ALREADY_CONFIRMED))
+                expect(managerMocked.save).not.toHaveBeenCalled()
+            })
+        })
+    })
+
+    describe('confirmMany', () => {
+        const pendingMocked: Transaction = { ...transactionMocked, status: TransactionStatus.PENDING }
+        const debitLeg: Transaction = { ...pendingMocked, id: 'debit-id', amount: -5834, sourceType: TransactionSourceType.TRANSFER, transferId: 'transfer-id' }
+        const creditLeg: Transaction = { ...debitLeg, id: 'credit-id', amount: 5834 }
+
+        describe('Success cases', () => {
+            it('should confirm the pending transactions with the other transaction of their transfers and ignore the confirmed ones', async () => {
+                const confirmedMocked = { ...transactionMocked, id: 'confirmed-id' }
+                managerMocked.find
+                    .mockResolvedValueOnce([pendingMocked, debitLeg, confirmedMocked])
+                    .mockResolvedValueOnce([pendingMocked, debitLeg, creditLeg, confirmedMocked])
+
+                const response = await transactionService.confirmMany('user-id', { ids: ['transaction-id', 'debit-id', 'confirmed-id'] })
+
+                expect(response.map(({ id, status }) => [id, status])).toEqual([
+                    ['transaction-id', TransactionStatus.CONFIRMED],
+                    ['debit-id', TransactionStatus.CONFIRMED],
+                    ['credit-id', TransactionStatus.CONFIRMED],
+                ])
+                expect(managerMocked.find).toHaveBeenNthCalledWith(2, Transaction, {
+                    where: [{ id: In(['transaction-id', 'debit-id', 'confirmed-id']), userId: 'user-id' }, { transferId: In(['transfer-id']), userId: 'user-id' }],
+                    order: { occurredOn: 'ASC', createdAt: 'ASC', amount: 'ASC' },
+                    lock: { mode: 'pessimistic_write' },
+                })
+                expect(managerMocked.update).toHaveBeenCalledWith(Transaction, { id: In(['transaction-id', 'debit-id', 'credit-id']) }, { status: TransactionStatus.CONFIRMED })
+            })
+
+            it('should return an empty list when every transaction is already confirmed', async () => {
+                managerMocked.find.mockResolvedValueOnce([transactionMocked]).mockResolvedValueOnce([transactionMocked])
+
+                const response = await transactionService.confirmMany('user-id', { ids: ['transaction-id'] })
+
+                expect(response).toEqual([])
+                expect(managerMocked.find).toHaveBeenNthCalledWith(2, Transaction, expect.objectContaining({ where: [{ id: In(['transaction-id']), userId: 'user-id' }] }))
+                expect(managerMocked.update).not.toHaveBeenCalled()
+            })
+        })
+
+        describe('Failure cases', () => {
+            it('should throw NotFoundException and confirm nothing when a transaction doesn\'t belong to the user', async () => {
+                managerMocked.find.mockResolvedValueOnce([pendingMocked])
+
+                await expect(transactionService.confirmMany('user-id', { ids: ['transaction-id', 'other-id'] })).rejects.toThrow(new NotFoundException(ERRORS_MESSAGES.TRANSACTIONS.TRANSACTION_NOT_FOUND))
+                expect(managerMocked.update).not.toHaveBeenCalled()
             })
         })
     })
