@@ -6,8 +6,9 @@ import { InstallmentPlanStatus } from "../installment-plans/types";
 import { Provision } from "../provisions/provision.entity";
 import { ProvisionStatus } from "../provisions/types";
 import { SavingsGoal } from "../savings-goals/savings-goal.entity";
-import { computePlannedTransactions, getDateInMonth, getReferenceDay } from "./planning.helpers";
-import { PlannedSource, PlanningRules } from "./types";
+import { TransactionSourceType, TransactionStatus } from "../transactions/types";
+import { computePlannedTransactions, getDateInMonth, getPreviousMonthStart, getReferenceDay, toPendingTransactions } from "./planning.helpers";
+import { PlannedSource, PlannedTransaction, PlanningRules } from "./types";
 
 describe('planning helpers', () => {
     const createdAt = new Date('2026-01-01T10:00:00Z')
@@ -226,6 +227,75 @@ describe('planning helpers', () => {
 
             it('should return an empty list for a user without rules', () => {
                 expect(computePlannedTransactions('2026-11', { accounts: [], incomes: [], fixedCharges: [], installmentPlans: [], provisions: [], savingsGoals: [] })).toEqual([])
+            })
+        })
+    })
+    describe('getPreviousMonthStart', () => {
+        describe('Success cases', () => {
+            it.each([
+                ['2026-11-02T00:05:00Z', '2026-10-01'],
+                ['2026-11-30T23:59:59Z', '2026-10-01'],
+                ['2027-01-01T00:05:00Z', '2026-12-01'],
+                ['2026-03-31T00:05:00Z', '2026-02-01'],
+            ])('should return %p as %p', (today, expected) => {
+                expect(getPreviousMonthStart(new Date(today))).toBe(expected)
+            })
+        })
+    })
+
+    describe('toPendingTransactions', () => {
+        const base = { label: 'Label', occurredOn: '2026-11-28', accountId: 'primary-id' }
+
+        describe('Success cases', () => {
+            it.each([
+                [PlannedSource.INCOME, 248000, TransactionSourceType.INCOME, 'incomeId'],
+                [PlannedSource.FIXED_CHARGE, -85000, TransactionSourceType.FIXED_CHARGE, 'fixedChargeId'],
+                [PlannedSource.INSTALLMENT, -18750, TransactionSourceType.INSTALLMENT, 'installmentId'],
+                [PlannedSource.PROVISION_PAYMENT, -70000, TransactionSourceType.PROVISION, 'provisionId'],
+                [PlannedSource.SAVINGS, -20000, TransactionSourceType.SAVINGS, 'savingsGoalId'],
+            ])('should map a %p to one pending %p transaction linked to its rule', (source, amount, sourceType, link) => {
+                const planned: PlannedTransaction = { ...base, source, sourceId: 'rule-id', amount, categoryId: 'category-id' }
+
+                expect(toPendingTransactions([planned], 'user-id')).toStrictEqual([{
+                    occurredOn: '2026-11-28',
+                    merchant: 'Label',
+                    status: TransactionStatus.PENDING,
+                    userId: 'user-id',
+                    [link]: 'rule-id',
+                    amount,
+                    accountId: 'primary-id',
+                    sourceType,
+                    categoryId: 'category-id',
+                }])
+            })
+
+            it('should default the category to null', () => {
+                const [transaction] = toPendingTransactions([{ ...base, source: PlannedSource.INCOME, sourceId: 'salary-id', amount: 248000 }], 'user-id')
+
+                expect(transaction.categoryId).toBeNull()
+            })
+
+            it.each([
+                [PlannedSource.PROVISION_TRANSFER, { provisionId: 'rule-id' }],
+                [PlannedSource.SAVINGS, { savingsGoalId: 'rule-id' }],
+                [PlannedSource.ACCOUNT_FUNDING, {}],
+            ])('should map a %p to two pending transfer legs sharing a transferId', (source, link) => {
+                const planned: PlannedTransaction = { ...base, source, sourceId: 'rule-id', amount: 5834, toAccountId: 'provisions-id' }
+
+                const [debit, credit] = toPendingTransactions([planned], 'user-id')
+
+                const leg = { occurredOn: '2026-11-28', merchant: 'Label', status: TransactionStatus.PENDING, userId: 'user-id', sourceType: TransactionSourceType.TRANSFER, transferId: expect.any(String), ...link }
+                expect(debit).toStrictEqual({ ...leg, amount: -5834, accountId: 'primary-id' })
+                expect(credit).toStrictEqual({ ...leg, amount: 5834, accountId: 'provisions-id' })
+                expect(debit.transferId).toEqual(credit.transferId)
+            })
+
+            it('should give each transfer its own transferId', () => {
+                const transfer: PlannedTransaction = { ...base, source: PlannedSource.ACCOUNT_FUNDING, sourceId: 'daily-id', amount: 60000, toAccountId: 'daily-id' }
+
+                const [first, , second] = toPendingTransactions([transfer, { ...transfer, sourceId: 'other-id' }], 'user-id')
+
+                expect(first.transferId).not.toEqual(second.transferId)
             })
         })
     })

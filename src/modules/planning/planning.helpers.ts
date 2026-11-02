@@ -1,4 +1,8 @@
+import { randomUUID } from "crypto";
+import { DeepPartial } from "typeorm";
 import { Income } from "../incomes/income.entity";
+import { Transaction } from "../transactions/transaction.entity";
+import { TransactionSourceType, TransactionStatus } from "../transactions/types";
 import { InstallmentPlanStatus } from "../installment-plans/types";
 import { getMonthlyAmount } from "../provisions/provision.helpers";
 import { ProvisionStatus } from "../provisions/types";
@@ -110,3 +114,43 @@ export const computePlannedTransactions = (month: string, { accounts, incomes, f
 
     return planned.sort((a, b) => a.occurredOn.localeCompare(b.occurredOn))
 }
+
+/**
+ * First day of the month before the month of a date, the pending transactions dated before it were not paid
+ */
+export const getPreviousMonthStart = (today: Date): string => {
+    const previousMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1))
+
+    return previousMonth.toISOString().slice(0, 10)
+}
+
+/**
+ * Link of a generated transaction to the rule it comes from, a transfer to fund an account is only linked by its transferId
+ */
+const LINKS: Record<PlannedSource, { sourceType: TransactionSourceType, link?: 'incomeId' | 'fixedChargeId' | 'installmentId' | 'provisionId' | 'savingsGoalId' }> = {
+    [PlannedSource.INCOME]: { sourceType: TransactionSourceType.INCOME, link: 'incomeId' },
+    [PlannedSource.FIXED_CHARGE]: { sourceType: TransactionSourceType.FIXED_CHARGE, link: 'fixedChargeId' },
+    [PlannedSource.INSTALLMENT]: { sourceType: TransactionSourceType.INSTALLMENT, link: 'installmentId' },
+    [PlannedSource.PROVISION_TRANSFER]: { sourceType: TransactionSourceType.TRANSFER, link: 'provisionId' },
+    [PlannedSource.PROVISION_PAYMENT]: { sourceType: TransactionSourceType.PROVISION, link: 'provisionId' },
+    [PlannedSource.SAVINGS]: { sourceType: TransactionSourceType.SAVINGS, link: 'savingsGoalId' },
+    [PlannedSource.ACCOUNT_FUNDING]: { sourceType: TransactionSourceType.TRANSFER },
+}
+
+/**
+ * Pending transactions to save for planned transactions, a transfer gives two legs sharing a transferId and the link to its rule
+ */
+export const toPendingTransactions = (planned: PlannedTransaction[], userId: string): DeepPartial<Transaction>[] => planned.flatMap<DeepPartial<Transaction>>(({ source, sourceId, label, amount, occurredOn, accountId, toAccountId, categoryId }) => {
+    const { sourceType, link } = LINKS[source]
+    const common = { occurredOn, merchant: label, status: TransactionStatus.PENDING, userId, ...(link && { [link]: sourceId }) }
+
+    if (!toAccountId) {
+        return [{ ...common, amount, accountId, sourceType, categoryId: categoryId ?? null }]
+    }
+
+    const leg = { ...common, sourceType: TransactionSourceType.TRANSFER, transferId: randomUUID() }
+    return [
+        { ...leg, amount: -amount, accountId },
+        { ...leg, amount, accountId: toAccountId },
+    ]
+})

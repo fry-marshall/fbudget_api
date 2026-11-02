@@ -35,3 +35,11 @@ export type PlanningRules = {
     provisions: Provision[];
     savingsGoals: SavingsGoal[];
 }
+
+/**
+ * A rule generating transactions every month, its cursor is the last month generated
+ */
+export type GeneratedRule = {
+    id?: string;
+    lastGeneratedMonth?: string | null;
+}
