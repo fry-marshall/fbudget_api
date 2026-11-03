@@ -20,6 +20,7 @@ import { TransferModule } from './modules/transfers/transfer.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PlanningModule } from './modules/planning/planning.module';
+import { BudgetModule } from './modules/budget/budget.module';
 import { ERRORS_MESSAGES } from './common/constants';
 
 @Module({
@@ -69,6 +70,7 @@ import { ERRORS_MESSAGES } from './common/constants';
     TransferModule,
     ScheduleModule.forRoot(),
     PlanningModule,
+    BudgetModule,
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
