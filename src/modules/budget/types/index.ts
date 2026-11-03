@@ -1,1 +1,1 @@
-export type { BudgetDashboard, BudgetRules, BudgetSummary } from './budget.types';
+export type { BudgetDashboard, BudgetRules, BudgetSummary, CategoryPacing } from './budget.types';

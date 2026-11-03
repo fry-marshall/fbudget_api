@@ -2,8 +2,9 @@ import { InstallmentPlanStatus } from "../installment-plans/types";
 import { getMonthlyAmount } from "../provisions/provision.helpers";
 import { ProvisionStatus } from "../provisions/types";
 import { Transaction } from "../transactions/transaction.entity";
-import { TransactionSourceType } from "../transactions/types";
-import { BudgetDashboard, BudgetRules, BudgetSummary } from "./types";
+import { TransactionSourceType, TransactionStatus } from "../transactions/types";
+import { Category } from "../categories/category.entity";
+import { BudgetDashboard, BudgetRules, BudgetSummary, CategoryPacing } from "./types";
 
 const sum = (amounts: number[]): number => amounts.reduce((total, amount) => total + amount, 0)
 
@@ -62,25 +63,48 @@ export const computeBudgetSummary = (month: string, { incomes, fixedCharges, ins
 }
 
 /**
- * Where the user stands in the month on a day (CALCULATIONS §4): the free amount of the month minus the expenses recorded by the user.
- * Only the manual transactions count: the generated ones and the transfers are already in the budget. A refund lowers the expenses
+ * Expenses of a set of transactions: their net amount, a refund lowers them, never below 0
  */
-export const computeBudgetDashboard = ({ month, daysInMonth, freeAmount: monthBudget }: BudgetSummary, transactions: Transaction[], today: Date): BudgetDashboard => {
-    const manualTotal = sum(transactions
-        .filter(({ sourceType, occurredOn }) => sourceType === TransactionSourceType.MANUAL && occurredOn!.startsWith(month))
-        .map(({ amount }) => amount!))
-    const spentThisMonth = Math.max(0, -manualTotal)
+const getSpent = (transactions: Transaction[]): number => Math.max(0, -sum(transactions.map(({ amount }) => amount!)))
+
+/**
+ * Where the user stands in the month on a day (CALCULATIONS §4): the free amount of the month minus the expenses recorded by the user, globally and by category.
+ * Only the confirmed manual transactions count: the generated ones and the transfers are already in the budget. A refund lowers the expenses
+ */
+export const computeBudgetDashboard = (
+    { month, daysInMonth, provisionSmoothing, freeAmount: monthBudget }: BudgetSummary,
+    transactions: Transaction[],
+    categories: Category[],
+    today: Date,
+): BudgetDashboard => {
+    const expenses = transactions.filter(({ sourceType, status, occurredOn }) => sourceType === TransactionSourceType.MANUAL && status === TransactionStatus.CONFIRMED && occurredOn!.startsWith(month))
+    const spentThisMonth = getSpent(expenses)
     const daysElapsed = getDaysElapsed(month, today)
     const projectedSpent = daysElapsed > 0 ? Math.round(spentThisMonth * daysInMonth / daysElapsed) : spentThisMonth
 
     return {
         month,
         monthBudget,
+        provisionSmoothing,
         spentThisMonth,
         freeAmount: monthBudget - spentThisMonth,
         pacingPct: monthBudget > 0 ? Math.floor(spentThisMonth * 100 / monthBudget) : null,
         projectedBalance: monthBudget - projectedSpent,
         daysElapsed,
         daysInMonth,
+        // The expenses without category count in spentThisMonth only
+        categories: categories.map(({ id, type, label, envelopeBudget }): CategoryPacing => {
+            const spent = getSpent(expenses.filter(({ categoryId }) => categoryId === id))
+
+            return {
+                categoryId: id!,
+                type: type!,
+                label: label ?? null,
+                spent,
+                envelopeBudget: envelopeBudget ?? null,
+                // Rounded down like pacingPct, null without positive envelope
+                pct: envelopeBudget && envelopeBudget > 0 ? Math.floor(spent * 100 / envelopeBudget) : null,
+            }
+        }),
     }
 }

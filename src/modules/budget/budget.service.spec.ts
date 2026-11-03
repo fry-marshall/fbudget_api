@@ -1,5 +1,8 @@
 import { Test } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
+import { And, LessThan, MoreThanOrEqual } from "typeorm";
+import { Category } from "../categories/category.entity";
+import { CategoryType } from "../categories/types";
 import { FixedCharge } from "../fixed-charges/fixed-charge.entity";
 import { Income } from "../incomes/income.entity";
 import { InstallmentPlan } from "../installment-plans/installment-plan.entity";
@@ -7,6 +10,8 @@ import { InstallmentPlanStatus } from "../installment-plans/types";
 import { Provision } from "../provisions/provision.entity";
 import { ProvisionStatus } from "../provisions/types";
 import { SavingsGoal } from "../savings-goals/savings-goal.entity";
+import { Transaction } from "../transactions/transaction.entity";
+import { TransactionSourceType, TransactionStatus } from "../transactions/types";
 import { BudgetService } from "./budget.service";
 
 describe('BudgetService', () => {
@@ -17,6 +22,8 @@ describe('BudgetService', () => {
     const installmentPlanRepositoryMocked = repositoryMocked()
     const provisionRepositoryMocked = repositoryMocked()
     const savingsGoalRepositoryMocked = repositoryMocked()
+    const transactionRepositoryMocked = repositoryMocked()
+    const categoryRepositoryMocked = repositoryMocked()
     let budgetService: BudgetService;
 
     beforeAll(async () => {
@@ -28,6 +35,8 @@ describe('BudgetService', () => {
                 { provide: getRepositoryToken(InstallmentPlan), useValue: installmentPlanRepositoryMocked },
                 { provide: getRepositoryToken(Provision), useValue: provisionRepositoryMocked },
                 { provide: getRepositoryToken(SavingsGoal), useValue: savingsGoalRepositoryMocked },
+                { provide: getRepositoryToken(Transaction), useValue: transactionRepositoryMocked },
+                { provide: getRepositoryToken(Category), useValue: categoryRepositoryMocked },
             ]
         }).compile()
 
@@ -37,7 +46,7 @@ describe('BudgetService', () => {
     beforeEach(() => {
         jest.resetAllMocks()
         jest.useRealTimers()
-        for (const repository of [incomeRepositoryMocked, fixedChargeRepositoryMocked, installmentPlanRepositoryMocked, provisionRepositoryMocked, savingsGoalRepositoryMocked]) {
+        for (const repository of [incomeRepositoryMocked, fixedChargeRepositoryMocked, installmentPlanRepositoryMocked, provisionRepositoryMocked, savingsGoalRepositoryMocked, transactionRepositoryMocked, categoryRepositoryMocked]) {
             repository.find.mockResolvedValue([])
         }
     })
@@ -84,6 +93,63 @@ describe('BudgetService', () => {
                 provisionRepositoryMocked.find.mockRejectedValueOnce(new Error('An error has occured'))
 
                 await expect(budgetService.getSummary('user-id', '2026-11')).rejects.toThrow(new Error('An error has occured'))
+            })
+        })
+    })
+
+    describe('getDashboard', () => {
+        describe('Success cases', () => {
+            it('should compute where the user stands from the rules, the manual expenses and the categories of the user', async () => {
+                jest.useFakeTimers({ now: new Date('2026-11-10T08:00:00Z') })
+                incomeRepositoryMocked.find.mockResolvedValueOnce([{ amount: 248000 }])
+                fixedChargeRepositoryMocked.find.mockResolvedValueOnce([{ amount: 119600 }])
+                provisionRepositoryMocked.find.mockResolvedValueOnce([{ status: ProvisionStatus.ACTIVE, totalAmount: 70000, frequencyMonths: 12 }])
+                transactionRepositoryMocked.find.mockResolvedValueOnce([
+                    { amount: -8640, occurredOn: '2026-11-03', sourceType: TransactionSourceType.MANUAL, status: TransactionStatus.CONFIRMED, categoryId: 'groceries-id' },
+                    { amount: -1360, occurredOn: '2026-11-05', sourceType: TransactionSourceType.MANUAL, status: TransactionStatus.CONFIRMED, categoryId: null },
+                ])
+                categoryRepositoryMocked.find.mockResolvedValueOnce([{ id: 'groceries-id', type: CategoryType.GROCERIES, label: null, envelopeBudget: 20000 }])
+
+                const response = await budgetService.getDashboard('user-id', '2026-11')
+
+                expect(response).toStrictEqual({
+                    month: '2026-11',
+                    monthBudget: 122566,
+                    provisionSmoothing: 5834,
+                    spentThisMonth: 10000,
+                    freeAmount: 112566,
+                    pacingPct: 8,
+                    // 10000 / 10 days × 30 days
+                    projectedBalance: 92566,
+                    daysElapsed: 10,
+                    daysInMonth: 30,
+                    categories: [{ categoryId: 'groceries-id', type: CategoryType.GROCERIES, label: null, spent: 8640, envelopeBudget: 20000, pct: 43 }],
+                })
+                expect(transactionRepositoryMocked.find).toHaveBeenCalledWith({
+                    where: {
+                        userId: 'user-id',
+                        sourceType: TransactionSourceType.MANUAL,
+                        status: TransactionStatus.CONFIRMED,
+                        occurredOn: And(MoreThanOrEqual('2026-11-01'), LessThan('2026-12-01')),
+                    },
+                })
+                expect(categoryRepositoryMocked.find).toHaveBeenCalledWith({ where: { userId: 'user-id' }, order: { createdAt: 'ASC' } })
+            })
+
+            it('should compute the current month by default', async () => {
+                jest.useFakeTimers({ now: new Date('2027-02-10T08:00:00Z') })
+
+                const response = await budgetService.getDashboard('user-id')
+
+                expect(response).toMatchObject({ month: '2027-02', daysInMonth: 28, daysElapsed: 10, monthBudget: 0, categories: [] })
+            })
+        })
+
+        describe('Failure cases', () => {
+            it('should throw Error when a query fails', async () => {
+                transactionRepositoryMocked.find.mockRejectedValueOnce(new Error('An error has occured'))
+
+                await expect(budgetService.getDashboard('user-id', '2026-11')).rejects.toThrow(new Error('An error has occured'))
             })
         })
     })

@@ -1,3 +1,4 @@
+import { CategoryType } from "src/modules/categories/types";
 import { FixedCharge } from "src/modules/fixed-charges/fixed-charge.entity";
 import { Income } from "src/modules/incomes/income.entity";
 import { InstallmentPlan } from "src/modules/installment-plans/installment-plan.entity";
@@ -37,6 +38,7 @@ export type BudgetSummary = {
 export type BudgetDashboard = {
     month: string;
     monthBudget: number;
+    provisionSmoothing: number;
     spentThisMonth: number;
     // monthBudget minus the expenses recorded by the user
     freeAmount: number;
@@ -46,4 +48,18 @@ export type BudgetDashboard = {
     projectedBalance: number;
     daysElapsed: number;
     daysInMonth: number;
+    categories: CategoryPacing[];
+}
+
+/**
+ * Expenses of a category in a month against its envelope, the front picks the color from pct
+ */
+export type CategoryPacing = {
+    categoryId: string;
+    type: CategoryType;
+    label: string | null;
+    spent: number;
+    envelopeBudget: number | null;
+    // Share of envelopeBudget spent, null without positive envelope
+    pct: number | null;
 }
